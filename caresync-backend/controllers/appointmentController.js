@@ -13,20 +13,28 @@ const bookAppointment = async (req, res) => {
     const { doctorId, date, timeSlot, reason } = req.body;
 
     // Resolve patientId from logged-in user
-    const patient = await Patient.findOne({ userId: req.user.id });
+    const patient = await Patient.findOne({ userId: String(req.user.id) });
     if (!patient) {
       return res.status(404).json({ success: false, error: 'Patient profile not found. Create one first.', statusCode: 404 });
     }
 
+    // Validate and sanitize date/timeSlot to prevent NoSQL injection
+    const parsedDate = new Date(String(date));
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid date format', statusCode: 400 });
+    }
+    const safeTimeSlot = String(timeSlot);
+    const safeDoctorId = String(doctorId);
+
     // Conflict detection: same doctor, same date, same time slot, not cancelled
-    const dayStart = new Date(date);
-    const dayEnd = new Date(date);
+    const dayStart = new Date(parsedDate);
+    const dayEnd = new Date(parsedDate);
     dayEnd.setDate(dayEnd.getDate() + 1);
 
     const conflict = await Appointment.findOne({
-      doctorId,
+      doctorId: safeDoctorId,
       date: { $gte: dayStart, $lt: dayEnd },
-      timeSlot,
+      timeSlot: safeTimeSlot,
       status: { $ne: 'Cancelled' },
     });
 
@@ -36,10 +44,10 @@ const bookAppointment = async (req, res) => {
 
     const appointment = await Appointment.create({
       patientId: patient._id,
-      doctorId,
-      date,
-      timeSlot,
-      reason,
+      doctorId: safeDoctorId,
+      date: parsedDate,
+      timeSlot: safeTimeSlot,
+      reason: reason ? String(reason) : undefined,
     });
 
     await appointment.populate([
@@ -58,13 +66,20 @@ const getAllAppointments = async (req, res) => {
   try {
     const { doctor, date, status } = req.query;
     const filter = {};
-    if (doctor) filter.doctorId = doctor;
-    if (status) filter.status = status;
+    // Cast to string to prevent NoSQL injection via object values
+    if (doctor) filter.doctorId = String(doctor);
+    if (status) {
+      const allowed = ['Pending', 'Confirmed', 'Completed', 'Cancelled'];
+      if (allowed.includes(String(status))) filter.status = String(status);
+    }
     if (date) {
-      const dayStart = new Date(date);
-      const dayEnd = new Date(date);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-      filter.date = { $gte: dayStart, $lt: dayEnd };
+      const parsedDate = new Date(String(date));
+      if (!isNaN(parsedDate.getTime())) {
+        const dayStart = new Date(parsedDate);
+        const dayEnd = new Date(parsedDate);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+        filter.date = { $gte: dayStart, $lt: dayEnd };
+      }
     }
 
     const appointments = await Appointment.find(filter)
@@ -126,13 +141,15 @@ const updateStatus = async (req, res) => {
   try {
     const { status } = req.body;
     const allowed = ['Pending', 'Confirmed', 'Completed', 'Cancelled'];
-    if (!allowed.includes(status)) {
+    // Cast to string and validate against allowlist to prevent injection
+    const safeStatus = String(status);
+    if (!allowed.includes(safeStatus)) {
       return res.status(400).json({ success: false, error: `Status must be one of: ${allowed.join(', ')}`, statusCode: 400 });
     }
 
     const appointment = await Appointment.findByIdAndUpdate(
       req.params.id,
-      { status },
+      { status: safeStatus },
       { new: true }
     );
     if (!appointment) {

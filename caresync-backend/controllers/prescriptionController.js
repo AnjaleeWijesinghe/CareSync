@@ -98,9 +98,21 @@ const getPrescription = async (req, res) => {
 // PUT /api/prescriptions/:id
 const updatePrescription = async (req, res) => {
   try {
+    // Extract only known safe fields to prevent mass-assignment injection
+    const { medicines, instructions, expiryDate, refillsAllowed, doctorId } = req.body;
+    const safeUpdate = { updatedAt: new Date() };
+    if (medicines !== undefined) safeUpdate.medicines = medicines;
+    if (instructions !== undefined) safeUpdate.instructions = String(instructions);
+    if (expiryDate !== undefined) {
+      const d = new Date(String(expiryDate));
+      if (!isNaN(d.getTime())) safeUpdate.expiryDate = d;
+    }
+    if (refillsAllowed !== undefined) safeUpdate.refillsAllowed = Number(refillsAllowed);
+    if (doctorId !== undefined) safeUpdate.doctorId = String(doctorId);
+
     const prescription = await Prescription.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, updatedAt: new Date() },
+      safeUpdate,
       { new: true, runValidators: true }
     );
     if (!prescription) {

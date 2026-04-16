@@ -42,17 +42,27 @@ const getAllPatients = async (req, res) => {
   try {
     const { name, bloodGroup, page = 1, limit = 20 } = req.query;
     const filter = { isActive: true };
-    if (bloodGroup) filter.bloodGroup = bloodGroup;
+    // Cast to string to prevent NoSQL injection; validate bloodGroup against enum
+    const validBloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+    if (bloodGroup && validBloodGroups.includes(String(bloodGroup))) {
+      filter.bloodGroup = String(bloodGroup);
+    }
+
+    // Use safe integer bounds for pagination
+    const safePage = Math.max(1, parseInt(String(page), 10) || 1);
+    const safeLimit = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 20));
 
     let query = Patient.find(filter).populate('userId', 'name email');
     if (name) {
+      // Escape regex special chars to prevent ReDoS
+      const safeNameRegex = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query = Patient.find(filter)
-        .populate({ path: 'userId', match: { name: { $regex: name, $options: 'i' } }, select: 'name email' });
+        .populate({ path: 'userId', match: { name: { $regex: safeNameRegex, $options: 'i' } }, select: 'name email' });
     }
 
     const patients = await query
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .skip((safePage - 1) * safeLimit)
+      .limit(safeLimit);
 
     const filtered = name ? patients.filter(p => p.userId) : patients;
     res.json({ success: true, data: filtered });
@@ -120,11 +130,16 @@ const searchPatients = async (req, res) => {
   try {
     const { name, bloodGroup } = req.query;
     const filter = { isActive: true };
-    if (bloodGroup) filter.bloodGroup = bloodGroup;
+    // Validate bloodGroup against enum to prevent injection
+    const validBloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+    if (bloodGroup && validBloodGroups.includes(String(bloodGroup))) {
+      filter.bloodGroup = String(bloodGroup);
+    }
 
     let patients = await Patient.find(filter).populate('userId', 'name email');
     if (name) {
-      patients = patients.filter(p => p.userId && p.userId.name.toLowerCase().includes(name.toLowerCase()));
+      const safeName = String(name).toLowerCase();
+      patients = patients.filter(p => p.userId && p.userId.name.toLowerCase().includes(safeName));
     }
 
     res.json({ success: true, data: patients });

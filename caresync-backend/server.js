@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const { authLimiter, apiLimiter } = require('./middleware/rateLimitMiddleware');
 
 const authRoutes = require('./routes/authRoutes');
 const patientRoutes = require('./routes/patientRoutes');
@@ -20,8 +21,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api/auth', authRoutes);
+// Apply general rate limit to all API routes
+app.use('/api', apiLimiter);
+
+// Routes (auth routes get a stricter limit)
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);

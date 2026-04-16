@@ -44,11 +44,18 @@ const getAllRecords = async (req, res) => {
   try {
     const { patient, dateFrom, dateTo } = req.query;
     const filter = {};
-    if (patient) filter.patientId = patient;
+    // Cast to string to prevent NoSQL injection
+    if (patient) filter.patientId = String(patient);
     if (dateFrom || dateTo) {
       filter.recordDate = {};
-      if (dateFrom) filter.recordDate.$gte = new Date(dateFrom);
-      if (dateTo) filter.recordDate.$lte = new Date(dateTo);
+      if (dateFrom) {
+        const d = new Date(String(dateFrom));
+        if (!isNaN(d.getTime())) filter.recordDate.$gte = d;
+      }
+      if (dateTo) {
+        const d = new Date(String(dateTo));
+        if (!isNaN(d.getTime())) filter.recordDate.$lte = d;
+      }
     }
 
     const records = await MedicalRecord.find(filter)
@@ -66,12 +73,18 @@ const getAllRecords = async (req, res) => {
 const getPatientRecords = async (req, res) => {
   try {
     const { dateFrom, dateTo } = req.query;
-    const filter = { patientId: req.params.patientId };
+    const filter = { patientId: String(req.params.patientId) };
 
     if (dateFrom || dateTo) {
       filter.recordDate = {};
-      if (dateFrom) filter.recordDate.$gte = new Date(dateFrom);
-      if (dateTo) filter.recordDate.$lte = new Date(dateTo);
+      if (dateFrom) {
+        const d = new Date(String(dateFrom));
+        if (!isNaN(d.getTime())) filter.recordDate.$gte = d;
+      }
+      if (dateTo) {
+        const d = new Date(String(dateTo));
+        if (!isNaN(d.getTime())) filter.recordDate.$lte = d;
+      }
     }
 
     // Ownership check for patient role

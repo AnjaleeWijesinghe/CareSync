@@ -15,14 +15,16 @@ const createDoctor = async (req, res) => {
       availableDays, availableSlots, consultationFee } = req.body;
 
     // Create user account for doctor
-    const existing = await User.findOne({ email });
+    // Cast to string to prevent NoSQL injection via object values
+    const safeEmail = String(email).toLowerCase().trim();
+    const existing = await User.findOne({ email: safeEmail });
     if (existing) {
       return res.status(400).json({ success: false, error: 'Email already registered', statusCode: 400 });
     }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password || require('crypto').randomBytes(16).toString('hex'), salt);
-    const user = await User.create({ name, email, passwordHash, role: 'doctor' });
+    const user = await User.create({ name: String(name).trim(), email: safeEmail, passwordHash, role: 'doctor' });
 
     const doctorData = {
       userId: user._id,
@@ -121,9 +123,15 @@ const getDoctorSlots = async (req, res) => {
       return res.status(400).json({ success: false, error: 'date query parameter required (YYYY-MM-DD)', statusCode: 400 });
     }
 
+    // Validate and sanitize date to prevent NoSQL injection
+    const parsedDate = new Date(String(date));
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD.', statusCode: 400 });
+    }
+
     const Appointment = require('../models/Appointment');
-    const dayStart = new Date(date);
-    const dayEnd = new Date(date);
+    const dayStart = new Date(parsedDate);
+    const dayEnd = new Date(parsedDate);
     dayEnd.setDate(dayEnd.getDate() + 1);
 
     const booked = await Appointment.find({
@@ -135,7 +143,7 @@ const getDoctorSlots = async (req, res) => {
     const bookedSlots = booked.map(a => a.timeSlot);
     const available = doctor.availableSlots.filter(s => !bookedSlots.includes(s));
 
-    res.json({ success: true, data: { date, allSlots: doctor.availableSlots, availableSlots: available, bookedSlots } });
+    res.json({ success: true, data: { date: parsedDate.toISOString().split('T')[0], allSlots: doctor.availableSlots, availableSlots: available, bookedSlots } });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message, statusCode: 500 });
   }

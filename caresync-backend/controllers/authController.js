@@ -13,7 +13,9 @@ const register = async (req, res) => {
   const { name, email, password, role } = req.body;
 
   try {
-    const existing = await User.findOne({ email });
+    // Cast to string to prevent NoSQL injection via object values
+    const safeEmail = String(email).toLowerCase().trim();
+    const existing = await User.findOne({ email: safeEmail });
     if (existing) {
       return res.status(400).json({ success: false, error: 'Email already registered', statusCode: 400 });
     }
@@ -21,7 +23,7 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const user = await User.create({ name, email, passwordHash, role });
+    const user = await User.create({ name: String(name).trim(), email: safeEmail, passwordHash, role });
 
     const userResponse = { _id: user._id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt };
     res.status(201).json({ success: true, data: userResponse, message: 'User registered successfully' });
@@ -40,7 +42,9 @@ const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
+    // Cast to string to prevent NoSQL injection via object values
+    const safeEmail = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: safeEmail });
     if (!user) {
       return res.status(401).json({ success: false, error: 'Invalid credentials', statusCode: 401 });
     }
