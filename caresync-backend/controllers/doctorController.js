@@ -1,7 +1,9 @@
 const { validationResult } = require('express-validator');
+const crypto = require('crypto');
 const Doctor = require('../models/Doctor');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const { isValidObjectId } = require('../utils/validators');
 
 // POST /api/doctors
 const createDoctor = async (req, res) => {
@@ -23,7 +25,7 @@ const createDoctor = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password || require('crypto').randomBytes(16).toString('hex'), salt);
+    const passwordHash = await bcrypt.hash(password || crypto.randomBytes(16).toString('hex'), salt);
     const user = await User.create({ name: String(name).trim(), email: safeEmail, passwordHash, role: 'doctor' });
 
     const doctorData = {
@@ -52,7 +54,11 @@ const getAllDoctors = async (req, res) => {
   try {
     const { specialisation } = req.query;
     const filter = { isActive: true };
-    if (specialisation) filter.specialisation = { $regex: specialisation, $options: 'i' };
+    if (specialisation) {
+      // Escape regex special chars to prevent ReDoS
+      const safeSpec = String(specialisation).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.specialisation = { $regex: safeSpec, $options: 'i' };
+    }
 
     const doctors = await Doctor.find(filter).populate('userId', 'name email');
     res.json({ success: true, data: doctors });
@@ -77,16 +83,36 @@ const getDoctor = async (req, res) => {
 // PUT /api/doctors/:id
 const updateDoctor = async (req, res) => {
   try {
-    const updates = { ...req.body };
-    if (updates.availableDays && !Array.isArray(updates.availableDays)) {
-      updates.availableDays = updates.availableDays.split(',');
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid doctor ID', statusCode: 400 });
     }
-    if (updates.availableSlots && !Array.isArray(updates.availableSlots)) {
-      updates.availableSlots = updates.availableSlots.split(',');
-    }
-    if (req.file) updates.photoUrl = req.file.path;
+    // Explicitly extract known fields to prevent mass-assignment injection
+    const {
+      specialisation, qualification, experienceYears, phone,
+      availableDays, availableSlots, consultationFee, isActive,
+    } = req.body;
 
-    const doctor = await Doctor.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
+    const safeUpdates = {};
+    if (specialisation !== undefined) safeUpdates.specialisation = String(specialisation);
+    if (qualification !== undefined) safeUpdates.qualification = String(qualification);
+    if (experienceYears !== undefined) safeUpdates.experienceYears = Number(experienceYears);
+    if (phone !== undefined) safeUpdates.phone = String(phone);
+    if (consultationFee !== undefined) safeUpdates.consultationFee = Number(consultationFee);
+    if (isActive !== undefined) safeUpdates.isActive = Boolean(isActive);
+
+    if (availableDays !== undefined) {
+      safeUpdates.availableDays = Array.isArray(availableDays)
+        ? availableDays.map(String)
+        : String(availableDays).split(',').map(d => d.trim());
+    }
+    if (availableSlots !== undefined) {
+      safeUpdates.availableSlots = Array.isArray(availableSlots)
+        ? availableSlots.map(String)
+        : String(availableSlots).split(',').map(s => s.trim());
+    }
+    if (req.file) safeUpdates.photoUrl = req.file.path;
+
+    const doctor = await Doctor.findByIdAndUpdate(req.params.id, safeUpdates, { new: true, runValidators: true })
       .populate('userId', 'name email');
     if (!doctor) {
       return res.status(404).json({ success: false, error: 'Doctor not found', statusCode: 404 });

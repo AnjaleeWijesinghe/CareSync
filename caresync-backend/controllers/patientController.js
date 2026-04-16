@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const Patient = require('../models/Patient');
+const { isValidObjectId } = require('../utils/validators');
 
 // GET /api/patients/me  – own patient profile for logged-in patient
 const getMyProfile = async (req, res) => {
@@ -93,6 +94,9 @@ const getPatient = async (req, res) => {
 // PUT /api/patients/:id
 const updatePatient = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid patient ID', statusCode: 400 });
+    }
     const patient = await Patient.findById(req.params.id);
     if (!patient) {
       return res.status(404).json({ success: false, error: 'Patient not found', statusCode: 404 });
@@ -102,10 +106,35 @@ const updatePatient = async (req, res) => {
       return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
     }
 
-    const updates = { ...req.body };
-    if (req.file) updates.photoUrl = req.file.path;
+    // Explicitly extract known fields to prevent mass-assignment injection
+    const {
+      dateOfBirth, gender, phone, address, bloodGroup, allergies, emergencyContact,
+    } = req.body;
 
-    const updated = await Patient.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
+    const safeUpdates = {};
+    if (dateOfBirth !== undefined) {
+      const d = new Date(String(dateOfBirth));
+      if (!isNaN(d.getTime())) safeUpdates.dateOfBirth = d;
+    }
+    const validGenders = ['Male', 'Female', 'Other'];
+    if (gender !== undefined && validGenders.includes(String(gender))) safeUpdates.gender = String(gender);
+    if (phone !== undefined) safeUpdates.phone = String(phone);
+    if (address !== undefined) safeUpdates.address = String(address);
+    const validBloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+    if (bloodGroup !== undefined && validBloodGroups.includes(String(bloodGroup))) safeUpdates.bloodGroup = String(bloodGroup);
+    if (allergies !== undefined) {
+      safeUpdates.allergies = Array.isArray(allergies) ? allergies.map(String) : String(allergies).split(',').map(a => a.trim()).filter(Boolean);
+    }
+    if (emergencyContact !== undefined && typeof emergencyContact === 'object') {
+      safeUpdates.emergencyContact = {
+        name: emergencyContact.name ? String(emergencyContact.name) : undefined,
+        phone: emergencyContact.phone ? String(emergencyContact.phone) : undefined,
+        relation: emergencyContact.relation ? String(emergencyContact.relation) : undefined,
+      };
+    }
+    if (req.file) safeUpdates.photoUrl = req.file.path;
+
+    const updated = await Patient.findByIdAndUpdate(req.params.id, safeUpdates, { new: true, runValidators: true });
     res.json({ success: true, data: updated, message: 'Patient profile updated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message, statusCode: 500 });

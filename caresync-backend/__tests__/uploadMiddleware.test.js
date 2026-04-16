@@ -4,14 +4,22 @@
 
 // Isolate from real Cloudinary by mocking the module before requiring the middleware
 jest.mock('cloudinary', () => {
-  const mockUploadStream = jest.fn((options, callback) => {
-    const stream = require('stream').Writable({
+  const { Writable } = require('stream');
+
+  const makeMockStream = (callback, result) => {
+    const mockStream = new Writable({
       write(chunk, encoding, done) { done(); },
     });
-    // Simulate async Cloudinary response
-    setImmediate(() => callback(null, { secure_url: 'https://res.cloudinary.com/test/image/upload/v1/caresync/test.jpg', public_id: 'caresync/test' }));
-    return stream;
-  });
+    setImmediate(() => callback(null, result));
+    return mockStream;
+  };
+
+  const mockUploadStream = jest.fn((options, callback) =>
+    makeMockStream(callback, {
+      secure_url: 'https://res.cloudinary.com/test/image/upload/v1/caresync/test.jpg',
+      public_id: 'caresync/test',
+    })
+  );
 
   return {
     v2: {
@@ -66,9 +74,10 @@ describe('uploadMiddleware', () => {
     // Override mock to return an error for this test
     const cloudinary = require('cloudinary');
     cloudinary.v2.uploader.upload_stream.mockImplementationOnce((options, callback) => {
-      const stream = require('stream').Writable({ write(chunk, enc, done) { done(); } });
+      const { Writable } = require('stream');
+      const mockStream = new Writable({ write(chunk, enc, done) { done(); } });
       setImmediate(() => callback(new Error('Cloudinary upload failed')));
-      return stream;
+      return mockStream;
     });
 
     const req = { file: { buffer: Buffer.from('bad data'), mimetype: 'image/jpeg' } };

@@ -4,7 +4,7 @@ const upload = require('../middleware/uploadMiddleware');
 const { cloudinaryUpload } = require('../middleware/uploadMiddleware');
 const { body } = require('express-validator');
 const {
-  createRecord, getAllRecords, getPatientRecords, getRecord, updateRecord, deleteRecord,
+  createRecord, getAllRecords, getMyRecords, getPatientRecords, getRecord, updateRecord, deleteRecord,
 } = require('../controllers/medicalRecordController');
 
 const router = express.Router();
@@ -23,7 +23,8 @@ router.post(
 );
 
 router.get('/', protect, authorise('admin'), getAllRecords);
-router.get('/patient/:patientId', protect, getPatientRecords);
+router.get('/me', protect, authorise('patient'), getMyRecords);
+router.get('/patient/:patientId', protect, authorise('doctor', 'admin'), getPatientRecords);
 router.get('/:id', protect, getRecord);
 router.put('/:id', protect, authorise('doctor', 'admin'), upload.single('document'), cloudinaryUpload, updateRecord);
 router.delete('/:id', protect, authorise('admin'), deleteRecord);

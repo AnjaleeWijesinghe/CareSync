@@ -14,17 +14,9 @@ export default function MedicalRecordListScreen({ navigation }) {
   const fetchRecords = async () => {
     setLoading(true);
     try {
-      let url;
-      if (user?.role === 'admin') {
-        url = '/records';
-      } else if (user?.role === 'patient') {
-        const meRes = await axiosInstance.get('/patients/me');
-        const mine = meRes.data.data;
-        if (!mine) { setRecords([]); setLoading(false); return; }
-        url = `/records/patient/${mine._id}`;
-      } else {
-        url = '/records';
-      }
+      // Patients use /records/me (patient ID resolved from JWT on server)
+      // Doctors/admins use /records
+      const url = user?.role === 'patient' ? '/records/me' : '/records';
       const res = await axiosInstance.get(url);
       setRecords(res.data.data);
     } catch (err) {

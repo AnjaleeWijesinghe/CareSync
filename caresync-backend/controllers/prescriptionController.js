@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const Prescription = require('../models/Prescription');
 const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
+const { isValidObjectId } = require('../utils/validators');
 
 // POST /api/prescriptions
 const createPrescription = async (req, res) => {
@@ -98,8 +99,11 @@ const getPrescription = async (req, res) => {
 // PUT /api/prescriptions/:id
 const updatePrescription = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid prescription ID', statusCode: 400 });
+    }
     // Extract only known safe fields to prevent mass-assignment injection
-    const { medicines, instructions, expiryDate, refillsAllowed, doctorId } = req.body;
+    const { medicines, instructions, expiryDate, refillsAllowed } = req.body;
     const safeUpdate = { updatedAt: new Date() };
     if (medicines !== undefined) safeUpdate.medicines = medicines;
     if (instructions !== undefined) safeUpdate.instructions = String(instructions);
@@ -108,7 +112,6 @@ const updatePrescription = async (req, res) => {
       if (!isNaN(d.getTime())) safeUpdate.expiryDate = d;
     }
     if (refillsAllowed !== undefined) safeUpdate.refillsAllowed = Number(refillsAllowed);
-    if (doctorId !== undefined) safeUpdate.doctorId = String(doctorId);
 
     const prescription = await Prescription.findByIdAndUpdate(
       req.params.id,
