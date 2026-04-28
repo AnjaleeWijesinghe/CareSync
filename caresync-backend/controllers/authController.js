@@ -13,6 +13,14 @@ const register = async (req, res) => {
   const { name, email, password, role } = req.body;
 
   try {
+    if (role && role !== 'patient') {
+      return res.status(403).json({
+        success: false,
+        error: 'Self-service registration is limited to patient accounts',
+        statusCode: 403,
+      });
+    }
+
     // Cast to string to prevent NoSQL injection via object values
     const safeEmail = String(email).toLowerCase().trim();
     const existing = await User.findOne({ email: safeEmail });
@@ -23,7 +31,12 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const user = await User.create({ name: String(name).trim(), email: safeEmail, passwordHash, role });
+    const user = await User.create({
+      name: String(name).trim(),
+      email: safeEmail,
+      passwordHash,
+      role: 'patient',
+    });
 
     const userResponse = { _id: user._id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt };
     res.status(201).json({ success: true, data: userResponse, message: 'User registered successfully' });

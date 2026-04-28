@@ -58,9 +58,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await AsyncStorage.removeItem('token');
-    await AsyncStorage.removeItem('user');
     dispatch({ type: 'LOGOUT' });
+    await AsyncStorage.multiRemove(['token', 'user']);
   };
 
   return (
