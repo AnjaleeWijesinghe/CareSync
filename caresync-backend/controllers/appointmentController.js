@@ -1,8 +1,101 @@
 const { validationResult } = require('express-validator');
 const Appointment = require('../models/Appointment');
+const Doctor = require('../models/Doctor');
 const Patient = require('../models/Patient');
+const { isValidObjectId } = require('../utils/validators');
 
-// POST /api/appointments
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const getDayCode = (date) => DAYS[new Date(date).getDay()];
+
+const buildDayRange = (date) => {
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  return { dayStart, dayEnd };
+};
+
+const populateAppointment = (query) =>
+  query
+    .populate({ path: 'patientId', populate: { path: 'userId', select: 'name email' } })
+    .populate({ path: 'doctorId', populate: { path: 'userId', select: 'name email' } });
+
+const getBookableDoctors = async (req, res) => {
+  try {
+    const { search } = req.query;
+    const filter = { isActive: true };
+
+    if (search) {
+      const safeSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.specialisation = { $regex: safeSearch, $options: 'i' };
+    }
+
+    const doctors = await Doctor.find(filter)
+      .populate('userId', 'name email')
+      .sort({ specialisation: 1, createdAt: -1 });
+
+    res.json({ success: true, data: doctors });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, statusCode: 500 });
+  }
+};
+
+const getDoctorSlots = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { date } = req.query;
+
+    if (!isValidObjectId(doctorId)) {
+      return res.status(400).json({ success: false, error: 'Invalid doctor ID', statusCode: 400 });
+    }
+
+    if (!date) {
+      return res.status(400).json({ success: false, error: 'date query parameter required (YYYY-MM-DD)', statusCode: 400 });
+    }
+
+    const parsedDate = new Date(String(date));
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD.', statusCode: 400 });
+    }
+
+    const doctor = await Doctor.findOne({ _id: doctorId, isActive: true }).populate('userId', 'name email');
+    if (!doctor) {
+      return res.status(404).json({ success: false, error: 'Doctor not found', statusCode: 404 });
+    }
+
+    const scheduledDay = getDayCode(parsedDate);
+    const worksThatDay = !doctor.availableDays.length || doctor.availableDays.includes(scheduledDay);
+    const configuredSlots = worksThatDay ? doctor.availableSlots : [];
+    const { dayStart, dayEnd } = buildDayRange(parsedDate);
+
+    const bookedAppointments = await Appointment.find({
+      doctorId: doctor._id,
+      date: { $gte: dayStart, $lt: dayEnd },
+      status: { $ne: 'Cancelled' },
+    }).select('timeSlot');
+
+    const bookedSlots = bookedAppointments.map((appointment) => appointment.timeSlot);
+    const availableSlots = configuredSlots.filter((slot) => !bookedSlots.includes(slot));
+
+    res.json({
+      success: true,
+      data: {
+        date: dayStart.toISOString().split('T')[0],
+        scheduledDay,
+        doctor,
+        allSlots: configuredSlots,
+        availableSlots,
+        bookedSlots,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, statusCode: 500 });
+  }
+};
+
 const bookAppointment = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -12,25 +105,38 @@ const bookAppointment = async (req, res) => {
   try {
     const { doctorId, date, timeSlot, reason } = req.body;
 
-    // Resolve patientId from logged-in user
+    if (!isValidObjectId(doctorId)) {
+      return res.status(400).json({ success: false, error: 'Invalid doctor ID', statusCode: 400 });
+    }
+
     const patient = await Patient.findOne({ userId: String(req.user.id) });
     if (!patient) {
       return res.status(404).json({ success: false, error: 'Patient profile not found. Create one first.', statusCode: 404 });
     }
 
-    // Validate and sanitize date/timeSlot to prevent NoSQL injection
     const parsedDate = new Date(String(date));
     if (isNaN(parsedDate.getTime())) {
       return res.status(400).json({ success: false, error: 'Invalid date format', statusCode: 400 });
     }
-    const safeTimeSlot = String(timeSlot);
+
     const safeDoctorId = String(doctorId);
+    const safeTimeSlot = String(timeSlot);
+    const doctor = await Doctor.findOne({ _id: safeDoctorId, isActive: true });
 
-    // Conflict detection: same doctor, same date, same time slot, not cancelled
-    const dayStart = new Date(parsedDate);
-    const dayEnd = new Date(parsedDate);
-    dayEnd.setDate(dayEnd.getDate() + 1);
+    if (!doctor) {
+      return res.status(404).json({ success: false, error: 'Doctor not found', statusCode: 404 });
+    }
 
+    const scheduledDay = getDayCode(parsedDate);
+    if (doctor.availableDays.length && !doctor.availableDays.includes(scheduledDay)) {
+      return res.status(400).json({ success: false, error: 'Doctor is not available on the selected date', statusCode: 400 });
+    }
+
+    if (!doctor.availableSlots.includes(safeTimeSlot)) {
+      return res.status(400).json({ success: false, error: 'Selected time slot is not available for this doctor', statusCode: 400 });
+    }
+
+    const { dayStart, dayEnd } = buildDayRange(parsedDate);
     const conflict = await Appointment.findOne({
       doctorId: safeDoctorId,
       date: { $gte: dayStart, $lt: dayEnd },
@@ -50,10 +156,7 @@ const bookAppointment = async (req, res) => {
       reason: reason ? String(reason) : undefined,
     });
 
-    await appointment.populate([
-      { path: 'patientId', populate: { path: 'userId', select: 'name email' } },
-      { path: 'doctorId', populate: { path: 'userId', select: 'name email' } },
-    ]);
+    await populateAppointment(appointment);
 
     res.status(201).json({ success: true, data: appointment, message: 'Appointment booked successfully' });
   } catch (err) {
@@ -61,30 +164,35 @@ const bookAppointment = async (req, res) => {
   }
 };
 
-// GET /api/appointments  (admin)
 const getAllAppointments = async (req, res) => {
   try {
     const { doctor, date, status } = req.query;
     const filter = {};
-    // Cast to string to prevent NoSQL injection via object values
-    if (doctor) filter.doctorId = String(doctor);
+
+    if (req.user.role === 'doctor') {
+      const doctorProfile = await Doctor.findOne({ userId: req.user.id, isActive: true });
+      if (!doctorProfile) {
+        return res.status(404).json({ success: false, error: 'Doctor profile not found', statusCode: 404 });
+      }
+      filter.doctorId = doctorProfile._id;
+    } else if (doctor && isValidObjectId(doctor)) {
+      filter.doctorId = String(doctor);
+    }
+
     if (status) {
       const allowed = ['Pending', 'Confirmed', 'Completed', 'Cancelled'];
       if (allowed.includes(String(status))) filter.status = String(status);
     }
+
     if (date) {
       const parsedDate = new Date(String(date));
       if (!isNaN(parsedDate.getTime())) {
-        const dayStart = new Date(parsedDate);
-        const dayEnd = new Date(parsedDate);
-        dayEnd.setDate(dayEnd.getDate() + 1);
+        const { dayStart, dayEnd } = buildDayRange(parsedDate);
         filter.date = { $gte: dayStart, $lt: dayEnd };
       }
     }
 
-    const appointments = await Appointment.find(filter)
-      .populate({ path: 'patientId', populate: { path: 'userId', select: 'name email' } })
-      .populate({ path: 'doctorId', populate: { path: 'userId', select: 'name email' } })
+    const appointments = await populateAppointment(Appointment.find(filter))
       .sort({ date: -1 });
 
     res.json({ success: true, data: appointments });
@@ -93,7 +201,6 @@ const getAllAppointments = async (req, res) => {
   }
 };
 
-// GET /api/appointments/my  (patient)
 const getMyAppointments = async (req, res) => {
   try {
     const patient = await Patient.findOne({ userId: req.user.id });
@@ -111,21 +218,27 @@ const getMyAppointments = async (req, res) => {
   }
 };
 
-// GET /api/appointments/:id
 const getAppointment = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id)
-      .populate({ path: 'patientId', populate: { path: 'userId', select: 'name email' } })
-      .populate({ path: 'doctorId', populate: { path: 'userId', select: 'name email' } });
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid appointment ID', statusCode: 400 });
+    }
 
+    const appointment = await populateAppointment(Appointment.findById(req.params.id));
     if (!appointment) {
       return res.status(404).json({ success: false, error: 'Appointment not found', statusCode: 404 });
     }
 
-    // Ownership check
     if (req.user.role === 'patient') {
       const patient = await Patient.findOne({ userId: req.user.id });
       if (!patient || appointment.patientId._id.toString() !== patient._id.toString()) {
+        return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
+      }
+    }
+
+    if (req.user.role === 'doctor') {
+      const doctor = await Doctor.findOne({ userId: req.user.id });
+      if (!doctor || appointment.doctorId._id.toString() !== doctor._id.toString()) {
         return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
       }
     }
@@ -136,35 +249,48 @@ const getAppointment = async (req, res) => {
   }
 };
 
-// PATCH /api/appointments/:id/status
 const updateStatus = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid appointment ID', statusCode: 400 });
+    }
+
     const { status } = req.body;
     const allowed = ['Pending', 'Confirmed', 'Completed', 'Cancelled'];
-    // Cast to string and validate against allowlist to prevent injection
     const safeStatus = String(status);
+
     if (!allowed.includes(safeStatus)) {
       return res.status(400).json({ success: false, error: `Status must be one of: ${allowed.join(', ')}`, statusCode: 400 });
     }
 
-    const appointment = await Appointment.findByIdAndUpdate(
-      req.params.id,
-      { status: safeStatus },
-      { new: true }
-    );
+    const appointment = await Appointment.findById(req.params.id);
     if (!appointment) {
       return res.status(404).json({ success: false, error: 'Appointment not found', statusCode: 404 });
     }
 
-    res.json({ success: true, data: appointment, message: `Appointment status updated to ${status}` });
+    if (req.user.role === 'doctor') {
+      const doctor = await Doctor.findOne({ userId: req.user.id });
+      if (!doctor || appointment.doctorId.toString() !== doctor._id.toString()) {
+        return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
+      }
+    }
+
+    appointment.status = safeStatus;
+    await appointment.save();
+    await populateAppointment(appointment);
+
+    res.json({ success: true, data: appointment, message: `Appointment status updated to ${safeStatus}` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message, statusCode: 500 });
   }
 };
 
-// DELETE /api/appointments/:id
 const cancelAppointment = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid appointment ID', statusCode: 400 });
+    }
+
     const appointment = await Appointment.findById(req.params.id);
     if (!appointment) {
       return res.status(404).json({ success: false, error: 'Appointment not found', statusCode: 404 });
@@ -175,6 +301,7 @@ const cancelAppointment = async (req, res) => {
       if (!patient || appointment.patientId.toString() !== patient._id.toString()) {
         return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
       }
+
       if (appointment.status !== 'Pending') {
         return res.status(400).json({ success: false, error: 'Only Pending appointments can be cancelled by patient', statusCode: 400 });
       }
@@ -182,10 +309,20 @@ const cancelAppointment = async (req, res) => {
 
     appointment.status = 'Cancelled';
     await appointment.save();
+
     res.json({ success: true, message: 'Appointment cancelled successfully' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message, statusCode: 500 });
   }
 };
 
-module.exports = { bookAppointment, getAllAppointments, getMyAppointments, getAppointment, updateStatus, cancelAppointment };
+module.exports = {
+  getBookableDoctors,
+  getDoctorSlots,
+  bookAppointment,
+  getAllAppointments,
+  getMyAppointments,
+  getAppointment,
+  updateStatus,
+  cancelAppointment,
+};

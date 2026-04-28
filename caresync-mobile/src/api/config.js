@@ -1,3 +1,6 @@
-// Base URL for the CareSync API
-// Update this to your live Render/Railway deployment URL
-export const API_BASE_URL = 'https://caresync-api.onrender.com/api';
+import { Platform } from 'react-native';
+
+const configuredBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+const fallbackHost = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+
+export const API_BASE_URL = configuredBaseUrl || `http://${fallbackHost}:5000/api`;

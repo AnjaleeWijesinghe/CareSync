@@ -2,10 +2,20 @@ const express = require('express');
 const { protect, authorise } = require('../middleware/authMiddleware');
 const { body } = require('express-validator');
 const {
-  bookAppointment, getAllAppointments, getMyAppointments, getAppointment, updateStatus, cancelAppointment,
+  getBookableDoctors,
+  getDoctorSlots,
+  bookAppointment,
+  getAllAppointments,
+  getMyAppointments,
+  getAppointment,
+  updateStatus,
+  cancelAppointment,
 } = require('../controllers/appointmentController');
 
 const router = express.Router();
+
+router.get('/doctors', protect, getBookableDoctors);
+router.get('/doctors/:doctorId/slots', protect, getDoctorSlots);
 
 router.post(
   '/',
@@ -19,7 +29,7 @@ router.post(
   bookAppointment
 );
 
-router.get('/', protect, authorise('admin'), getAllAppointments);
+router.get('/', protect, authorise('admin', 'doctor'), getAllAppointments);
 router.get('/my', protect, authorise('patient'), getMyAppointments);
 router.get('/:id', protect, getAppointment);
 router.patch('/:id/status', protect, authorise('doctor', 'admin'), updateStatus);

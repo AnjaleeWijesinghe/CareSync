@@ -1,16 +1,23 @@
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const hasCloudinaryConfig = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME
+  && process.env.CLOUDINARY_API_KEY
+  && process.env.CLOUDINARY_API_SECRET
+);
+
+if (hasCloudinaryConfig) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Store files in memory; stream to Cloudinary in the route handler via uploadToCloudinary()
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE },
@@ -23,18 +30,18 @@ const upload = multer({
   },
 });
 
-/**
- * Upload a file buffer to Cloudinary.
- * Returns a Promise that resolves with the Cloudinary upload result.
- * @param {Buffer} buffer - File buffer from multer memoryStorage
- * @param {object} options - Optional Cloudinary upload options
- */
 const uploadToCloudinary = (buffer, options = {}) =>
   new Promise((resolve, reject) => {
+    if (!hasCloudinaryConfig) {
+      resolve({ secure_url: null, public_id: null });
+      return;
+    }
+
     const defaults = {
       folder: 'caresync',
       transformation: [{ width: 800, crop: 'limit' }],
     };
+
     const stream = cloudinary.uploader.upload_stream(
       { ...defaults, ...options },
       (error, result) => {
@@ -42,21 +49,24 @@ const uploadToCloudinary = (buffer, options = {}) =>
         resolve(result);
       }
     );
+
     stream.end(buffer);
   });
 
-/**
- * Express middleware that, after multer has placed the file in req.file,
- * streams the buffer to Cloudinary and attaches result to req.file.
- * Skips gracefully if no file was uploaded.
- */
 const cloudinaryUpload = async (req, res, next) => {
   if (!req.file) return next();
+
   try {
+    if (!hasCloudinaryConfig) {
+      req.file.path = null;
+      req.file.cloudinaryPublicId = null;
+      return next();
+    }
+
     const result = await uploadToCloudinary(req.file.buffer, {
       resource_type: req.file.mimetype === 'application/pdf' ? 'raw' : 'image',
     });
-    // Attach the Cloudinary URL so controllers can use req.file.path (same interface as before)
+
     req.file.path = result.secure_url;
     req.file.cloudinaryPublicId = result.public_id;
     next();
