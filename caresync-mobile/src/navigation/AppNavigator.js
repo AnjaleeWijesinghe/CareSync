@@ -10,11 +10,17 @@ import { navTheme, palette, radii, spacing, typography } from '../theme';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import AdminOverviewScreen from '../screens/admin/AdminOverviewScreen';
+import AuditLogScreen from '../screens/admin/AuditLogScreen';
 import AppointmentBookScreen from '../screens/appointment/AppointmentBookScreen';
 import AppointmentListScreen from '../screens/appointment/AppointmentListScreen';
 import PatientListScreen from '../screens/patient/PatientListScreen';
 import PatientProfileScreen from '../screens/patient/PatientProfileScreen';
 import PatientEditScreen from '../screens/patient/PatientEditScreen';
+import MedicalRecordListScreen from '../screens/medicalRecord/MedicalRecordListScreen';
+import MedicalRecordDetailScreen from '../screens/medicalRecord/MedicalRecordDetailScreen';
+import CreateRecordScreen from '../screens/medicalRecord/CreateRecordScreen';
+import PrescriptionListScreen from '../screens/prescription/PrescriptionListScreen';
+import PrescriptionDetailScreen from '../screens/prescription/PrescriptionDetailScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -111,12 +117,21 @@ function PatientTabs() {
         }}
       />
       <Tab.Screen
-        name="BookAppointment"
-        component={AppointmentBookScreen}
+        name="Records"
+        component={MedicalRecordListScreen}
         options={{
-          title: 'Book Appointment',
-          tabBarLabel: 'Book',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="plus-circle-outline" color={color} focused={focused} />,
+          title: 'Medical Records',
+          tabBarLabel: 'Records',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="file-document-outline" color={color} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Prescriptions"
+        component={PrescriptionListScreen}
+        options={{
+          title: 'My Prescriptions',
+          tabBarLabel: 'Rx',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="pill" color={color} focused={focused} />,
         }}
       />
       <Tab.Screen
@@ -154,12 +169,21 @@ function AdminTabs() {
         }}
       />
       <Tab.Screen
-        name="Appointments"
-        component={AppointmentListScreen}
+        name="Records"
+        component={MedicalRecordListScreen}
         options={{
-          title: 'Appointment Management',
-          tabBarLabel: 'Appointments',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="calendar-check-outline" color={color} focused={focused} />,
+          title: 'Medical Records',
+          tabBarLabel: 'Records',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="file-document-outline" color={color} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="AuditLogs"
+        component={AuditLogScreen}
+        options={{
+          title: 'Audit Log',
+          tabBarLabel: 'Audit',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="shield-check-outline" color={color} focused={focused} />,
         }}
       />
     </Tab.Navigator>
@@ -176,6 +200,24 @@ function DoctorTabs() {
           title: 'Assigned Appointments',
           tabBarLabel: 'Appointments',
           tabBarIcon: ({ color, focused }) => <TabIcon name="stethoscope" color={color} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Records"
+        component={MedicalRecordListScreen}
+        options={{
+          title: 'Patient Records',
+          tabBarLabel: 'Records',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="file-document-outline" color={color} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Prescriptions"
+        component={PrescriptionListScreen}
+        options={{
+          title: 'Prescriptions',
+          tabBarLabel: 'Rx',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="pill" color={color} focused={focused} />,
         }}
       />
     </Tab.Navigator>
@@ -228,6 +270,9 @@ export default function AppNavigator() {
                 title: route.params?.mode === 'adminCreate' ? 'Create Patient Account' : 'Edit Patient Profile',
               })}
             />
+            <Stack.Screen name="RecordDetail" component={MedicalRecordDetailScreen} options={{ title: 'Record Details' }} />
+            <Stack.Screen name="CreateRecord" component={CreateRecordScreen} options={{ title: 'Create Medical Record' }} />
+            <Stack.Screen name="PrescriptionDetail" component={PrescriptionDetailScreen} options={{ title: 'Prescription Details' }} />
           </>
         )}
       </Stack.Navigator>
