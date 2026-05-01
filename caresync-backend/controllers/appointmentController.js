@@ -19,9 +19,10 @@ const buildDayRange = (date) => {
 };
 
 const populateAppointment = (query) =>
-  query
-    .populate({ path: 'patientId', populate: { path: 'userId', select: 'name email' } })
-    .populate({ path: 'doctorId', populate: { path: 'userId', select: 'name email' } });
+  query.populate([
+    { path: 'patientId', populate: { path: 'userId', select: 'name email' } },
+    { path: 'doctorId', populate: { path: 'userId', select: 'name email' } }
+  ]);
 
 const getBookableDoctors = async (req, res) => {
   try {
