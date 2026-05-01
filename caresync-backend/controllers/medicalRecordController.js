@@ -7,11 +7,12 @@ const { logAudit } = require('../middleware/auditMiddleware');
 const { uploadToCloudinary } = require('../middleware/uploadMiddleware');
 
 const populateRecord = (query) =>
-  query
-    .populate({ path: 'patientId', populate: { path: 'userId', select: 'name email' } })
-    .populate({ path: 'doctorId', populate: { path: 'userId', select: 'name email' } })
-    .populate({ path: 'appointmentId', select: 'date timeSlot status' })
-    .populate({ path: 'addendums.addedBy', select: 'name role' });
+  query.populate([
+    { path: 'patientId', populate: { path: 'userId', select: 'name email' } },
+    { path: 'doctorId', populate: { path: 'userId', select: 'name email' } },
+    { path: 'appointmentId', select: 'date timeSlot status' },
+    { path: 'addendums.addedBy', select: 'name role' }
+  ]);
 
 const getDoctorProfile = (userId) => Doctor.findOne({ userId, isActive: true });
 const getPatientProfile = (userId) => Patient.findOne({ userId });
