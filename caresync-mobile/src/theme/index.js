@@ -63,9 +63,12 @@ export const shadows = {
   },
 };
 
+import { DefaultTheme } from '@react-navigation/native';
+
 export const navTheme = {
-  dark: false,
+  ...DefaultTheme,
   colors: {
+    ...DefaultTheme.colors,
     primary: palette.primary,
     background: palette.canvasBottom,
     card: palette.paper,

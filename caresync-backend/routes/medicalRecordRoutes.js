@@ -3,7 +3,7 @@ const { protect, authorise } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 const {
   createRecord, getAllRecords, getMyRecords, getPatientRecords,
-  getRecord, updateRecord, addAddendum, searchRecords, deleteRecord,
+  getRecord, updateRecord, addAddendum, searchRecords, archiveRecord, deleteRecord,
 } = require('../controllers/medicalRecordController');
 
 const router = express.Router();
@@ -16,6 +16,7 @@ router.get('/patient/:patientId', protect, authorise('patient', 'doctor', 'admin
 router.get('/:id', protect, getRecord);
 router.put('/:id', protect, authorise('doctor', 'admin'), upload.array('documents', 5), updateRecord);
 router.patch('/:id/addendum', protect, authorise('doctor', 'admin'), addAddendum);
+router.patch('/:id/archive', protect, authorise('doctor', 'admin'), archiveRecord);
 router.delete('/:id', protect, authorise('admin'), deleteRecord);
 
 module.exports = router;

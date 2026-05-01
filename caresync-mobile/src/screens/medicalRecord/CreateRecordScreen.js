@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
-import { createRecord } from '../../api/medicalRecordApi';
+import { createRecord, getRecord, updateRecord } from '../../api/medicalRecordApi';
 import axiosInstance from '../../api/axiosInstance';
 import { palette, radii, shadows, spacing, typography } from '../../theme';
 
@@ -15,12 +15,17 @@ export default function CreateRecordScreen({ route }) {
   const navigation = useNavigation();
   const { user } = useAuth();
   const preselectedPatientId = route?.params?.patientId;
+  const editRecordId = route?.params?.editRecordId;
 
   const [patients, setPatients] = useState([]);
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [showPatientPicker, setShowPatientPicker] = useState(!preselectedPatientId);
+  const [showPatientPicker, setShowPatientPicker] = useState(!preselectedPatientId && !editRecordId);
+
+  const [doctors, setDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
 
   const [diagnosis, setDiagnosis] = useState('');
   const [symptoms, setSymptoms] = useState('');
@@ -51,6 +56,16 @@ export default function CreateRecordScreen({ route }) {
   }, [searchPatients, preselectedPatientId]);
 
   useEffect(() => {
+    if (user?.role === 'admin' && !editRecordId) {
+      setLoadingDoctors(true);
+      axiosInstance.get('/appointments/doctors')
+        .then(res => setDoctors(res?.data?.data || []))
+        .catch(() => {})
+        .finally(() => setLoadingDoctors(false));
+    }
+  }, [user?.role, editRecordId]);
+
+  useEffect(() => {
     if (preselectedPatientId) {
       axiosInstance.get(`/patients/${preselectedPatientId}`).then((res) => {
         if (res?.data?.data) setSelectedPatient(res.data.data);
@@ -58,9 +73,32 @@ export default function CreateRecordScreen({ route }) {
     }
   }, [preselectedPatientId]);
 
+  useEffect(() => {
+    if (editRecordId) {
+      getRecord(editRecordId).then((res) => {
+        const data = res?.data?.data;
+        if (data) {
+          if (data.patientId) setSelectedPatient(data.patientId);
+          setDiagnosis(data.diagnosis || '');
+          setSymptoms(data.symptoms?.join(', ') || '');
+          setTreatment(data.treatment || '');
+          setNotes(data.notes || '');
+          if (data.vitalSigns) {
+            setBp(data.vitalSigns.bloodPressure || '');
+            setHr(data.vitalSigns.heartRate ? String(data.vitalSigns.heartRate) : '');
+            setTemp(data.vitalSigns.temperature ? String(data.vitalSigns.temperature) : '');
+            setWeight(data.vitalSigns.weight ? String(data.vitalSigns.weight) : '');
+            setHeight(data.vitalSigns.height ? String(data.vitalSigns.height) : '');
+          }
+        }
+      }).catch(() => Alert.alert('Error', 'Failed to load record for editing'));
+    }
+  }, [editRecordId]);
+
   const validate = () => {
     const e = {};
-    if (!selectedPatient && !preselectedPatientId) e.patient = 'Select a patient';
+    if (!selectedPatient && !preselectedPatientId && !editRecordId) e.patient = 'Select a patient';
+    if (user?.role === 'admin' && !editRecordId && !selectedDoctor) e.doctor = 'Select a doctor';
     if (!diagnosis.trim()) e.diagnosis = 'Diagnosis is required';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -86,6 +124,9 @@ export default function CreateRecordScreen({ route }) {
     try {
       const form = new FormData();
       form.append('patientId', selectedPatient?._id || preselectedPatientId);
+      if (user?.role === 'admin' && selectedDoctor) {
+        form.append('doctorId', selectedDoctor._id);
+      }
       form.append('diagnosis', diagnosis.trim());
       if (symptoms.trim()) form.append('symptoms', symptoms.trim());
       if (treatment.trim()) form.append('treatment', treatment.trim());
@@ -103,10 +144,17 @@ export default function CreateRecordScreen({ route }) {
         form.append('documents', { uri: file.uri, name: file.name, type: file.mimeType || 'application/octet-stream' });
       }
 
-      await createRecord(form);
-      Alert.alert('Success', 'Medical record created successfully', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      if (editRecordId) {
+        await updateRecord(editRecordId, form);
+        Alert.alert('Success', 'Medical record updated successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        await createRecord(form);
+        Alert.alert('Success', 'Medical record created successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch (err) {
       Alert.alert('Error', err.response?.data?.error || err.message);
     } finally { setSubmitting(false); }
@@ -126,7 +174,7 @@ export default function CreateRecordScreen({ route }) {
                 <Text style={styles.selectedEmail}>{selectedPatient.userId?.email || ''}</Text>
               </View>
             </View>
-            {!preselectedPatientId && (
+            {(!preselectedPatientId && !editRecordId) && (
               <TouchableOpacity onPress={() => { setSelectedPatient(null); setShowPatientPicker(true); }}>
                 <MaterialCommunityIcons name="close-circle" size={22} color={palette.inkMuted} />
               </TouchableOpacity>
@@ -149,6 +197,39 @@ export default function CreateRecordScreen({ route }) {
           </View>
         ) : null}
         {errors.patient && <Text style={styles.error}>{errors.patient}</Text>}
+
+        {/* Doctor Selection for Admin */}
+        {user?.role === 'admin' && !editRecordId && (
+          <>
+            <Text style={styles.sectionLabel}>Doctor *</Text>
+            {selectedDoctor ? (
+              <View style={styles.selectedPatient}>
+                <View style={styles.selectedInfo}>
+                  <MaterialCommunityIcons name="stethoscope" size={28} color={palette.primary} />
+                  <View>
+                    <Text style={styles.selectedName}>{selectedDoctor.userId?.name || 'Doctor'}</Text>
+                    <Text style={styles.selectedEmail}>{selectedDoctor.specialisation || ''}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => setSelectedDoctor(null)}>
+                  <MaterialCommunityIcons name="close-circle" size={22} color={palette.inkMuted} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.pickerWrap}>
+                {loadingDoctors ? <ActivityIndicator color={palette.primary} style={{ marginVertical: 8 }} /> : (
+                  doctors.map((d) => (
+                    <TouchableOpacity key={d._id} style={styles.pickerItem} onPress={() => setSelectedDoctor(d)}>
+                      <Text style={styles.pickerName}>{d.userId?.name || 'Unknown'}</Text>
+                      <Text style={styles.pickerEmail}>{d.specialisation || ''}</Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            )}
+            {errors.doctor && <Text style={styles.error}>{errors.doctor}</Text>}
+          </>
+        )}
 
         {/* Diagnosis */}
         <Text style={styles.sectionLabel}>Diagnosis *</Text>
@@ -222,7 +303,7 @@ export default function CreateRecordScreen({ route }) {
           {submitting ? <ActivityIndicator color={palette.white} /> : (
             <>
               <MaterialCommunityIcons name="check-circle-outline" size={20} color={palette.white} />
-              <Text style={styles.submitText}>Create Medical Record</Text>
+              <Text style={styles.submitText}>{editRecordId ? 'Update Medical Record' : 'Create Medical Record'}</Text>
             </>
           )}
         </TouchableOpacity>

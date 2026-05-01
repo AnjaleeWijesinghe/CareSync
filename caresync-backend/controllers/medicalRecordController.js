@@ -246,4 +246,23 @@ const deleteRecord = async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
 };
 
-module.exports = { createRecord, getAllRecords, getMyRecords, getPatientRecords, getRecord, updateRecord, addAddendum, searchRecords, deleteRecord };
+// PATCH /api/records/:id/archive
+const archiveRecord = async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid record ID', statusCode: 400 });
+    const record = await MedicalRecord.findById(req.params.id);
+    if (!record) return res.status(404).json({ success: false, error: 'Medical record not found', statusCode: 404 });
+
+    if (req.user.role === 'doctor') {
+      const d = await getDoctorProfile(req.user.id);
+      if (!d || record.doctorId.toString() !== d._id.toString()) return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
+    }
+
+    record.status = 'Archived';
+    await record.save();
+    logAudit(req, { action: 'UPDATE', resourceType: 'MedicalRecord', resourceId: record._id, details: `Archived record ${record._id}` });
+    res.json({ success: true, data: record, message: 'Medical record archived successfully' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
+};
+
+module.exports = { createRecord, getAllRecords, getMyRecords, getPatientRecords, getRecord, updateRecord, addAddendum, searchRecords, archiveRecord, deleteRecord };

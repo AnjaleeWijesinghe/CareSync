@@ -37,7 +37,7 @@ export default function MedicalRecordListScreen({ route }) {
         res = await getMyRecords({ dateFrom: dateFrom || undefined, dateTo: dateTo || undefined });
       } else if (user?.role === 'doctor' || user?.role === 'admin') {
         const params = {};
-        if (search.trim()) params.diagnosis = search.trim();
+        if (search.trim()) params.doctorName = search.trim();
         if (dateFrom) params.dateFrom = dateFrom;
         if (dateTo) params.dateTo = dateTo;
         res = await searchRecords(params);
@@ -133,7 +133,7 @@ export default function MedicalRecordListScreen({ route }) {
             <MaterialCommunityIcons name="magnify" size={18} color={palette.inkMuted} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search by diagnosis…"
+              placeholder="Search by doctor name…"
               placeholderTextColor={palette.inkMuted}
               value={search}
               onChangeText={setSearch}

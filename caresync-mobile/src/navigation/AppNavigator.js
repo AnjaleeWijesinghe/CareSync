@@ -160,6 +160,15 @@ function AdminTabs() {
         }}
       />
       <Tab.Screen
+        name="Appointments"
+        component={AppointmentListScreen}
+        options={{
+          title: 'All Appointments',
+          tabBarLabel: 'Schedule',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="calendar-clock-outline" color={color} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
         name="Patients"
         component={PatientListScreen}
         options={{
@@ -273,6 +282,7 @@ export default function AppNavigator() {
             <Stack.Screen name="RecordDetail" component={MedicalRecordDetailScreen} options={{ title: 'Record Details' }} />
             <Stack.Screen name="CreateRecord" component={CreateRecordScreen} options={{ title: 'Create Medical Record' }} />
             <Stack.Screen name="PrescriptionDetail" component={PrescriptionDetailScreen} options={{ title: 'Prescription Details' }} />
+            <Stack.Screen name="BookAppointment" component={AppointmentBookScreen} options={{ title: 'Book Appointment' }} />
           </>
         )}
       </Stack.Navigator>

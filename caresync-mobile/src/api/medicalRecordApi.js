@@ -24,4 +24,6 @@ export const updateRecord = (id, formData) =>
 
 export const addAddendum = (id, text) => axiosInstance.patch(`/records/${id}/addendum`, { text });
 
+export const archiveRecord = (id) => axiosInstance.patch(`/records/${id}/archive`);
+
 export const deleteRecord = (id) => axiosInstance.delete(`/records/${id}`);

@@ -4,9 +4,9 @@ import {
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
-import { getRecord, addAddendum } from '../../api/medicalRecordApi';
+import { getRecord, addAddendum, archiveRecord, deleteRecord } from '../../api/medicalRecordApi';
 import { palette, radii, shadows, spacing, typography } from '../../theme';
 
 const fmt = (iso) => {
@@ -33,6 +33,7 @@ function Section({ icon, title, children }) {
 
 export default function MedicalRecordDetailScreen({ route }) {
   const { recordId } = route.params;
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +62,32 @@ export default function MedicalRecordDetailScreen({ route }) {
       Alert.alert('Success', 'Follow-up note added.');
     } catch (err) { Alert.alert('Error', err.response?.data?.error || err.message); }
     finally { setSubmitting(false); }
+  };
+
+  const handleArchive = () => {
+    Alert.alert('Archive Record', 'Are you sure you want to archive this record?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Archive', style: 'destructive', onPress: async () => {
+        try {
+          await archiveRecord(recordId);
+          Alert.alert('Success', 'Record archived.');
+          navigation.goBack();
+        } catch (err) { Alert.alert('Error', err.response?.data?.error || err.message); }
+      }},
+    ]);
+  };
+
+  const handleDelete = () => {
+    Alert.alert('Delete Record', 'Are you sure you want to permanently delete this record? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          await deleteRecord(recordId);
+          Alert.alert('Success', 'Record deleted.');
+          navigation.goBack();
+        } catch (err) { Alert.alert('Error', err.response?.data?.error || err.message); }
+      }},
+    ]);
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={palette.primary} /></View>;
@@ -222,6 +249,28 @@ export default function MedicalRecordDetailScreen({ route }) {
         </View>
       )}
 
+      {/* Admin / Doctor Actions */}
+      <View style={styles.actionRow}>
+        {user?.role === 'admin' && (
+          <>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: palette.primary }]} onPress={() => navigation.navigate('CreateRecord', { editRecordId: recordId })}>
+              <MaterialCommunityIcons name="pencil" size={16} color={palette.white} />
+              <Text style={styles.actionBtnText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: palette.danger }]} onPress={handleDelete}>
+              <MaterialCommunityIcons name="delete" size={16} color={palette.white} />
+              <Text style={styles.actionBtnText}>Delete</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        {(user?.role === 'doctor' && record.status === 'Active') && (
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: palette.warning }]} onPress={handleArchive}>
+            <MaterialCommunityIcons name="archive" size={16} color={palette.white} />
+            <Text style={styles.actionBtnText}>Archive</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -294,4 +343,7 @@ const styles = StyleSheet.create({
   submitBtn: { paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, borderRadius: radii.sm, backgroundColor: palette.primary },
   submitText: { fontFamily: typography.bodySemiBold, fontSize: 13, color: palette.white },
   disabled: { opacity: 0.5 },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, justifyContent: 'center' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radii.sm },
+  actionBtnText: { fontFamily: typography.bodySemiBold, fontSize: 13, color: palette.white },
 });
