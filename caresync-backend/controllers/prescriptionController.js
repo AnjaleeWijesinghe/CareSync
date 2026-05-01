@@ -9,10 +9,11 @@ const getDoctorProfile = (userId) => Doctor.findOne({ userId, isActive: true });
 const getPatientProfile = (userId) => Patient.findOne({ userId });
 
 const populatePrescription = (query) =>
-  query
-    .populate({ path: 'patientId', populate: { path: 'userId', select: 'name email' } })
-    .populate({ path: 'doctorId', populate: { path: 'userId', select: 'name email' } })
-    .populate({ path: 'recordId', select: 'diagnosis recordDate' });
+  query.populate([
+    { path: 'patientId', populate: { path: 'userId', select: 'name email' } },
+    { path: 'doctorId', populate: { path: 'userId', select: 'name email' } },
+    { path: 'recordId', select: 'diagnosis recordDate' }
+  ]);
 
 // POST /api/prescriptions
 const createPrescription = async (req, res) => {
