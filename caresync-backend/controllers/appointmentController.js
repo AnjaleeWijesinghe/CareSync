@@ -3,20 +3,11 @@ const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
 const Patient = require('../models/Patient');
 const { isValidObjectId } = require('../utils/validators');
-
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const getDayCode = (date) => DAYS[new Date(date).getDay()];
-
-const buildDayRange = (date) => {
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-
-  return { dayStart, dayEnd };
-};
+const {
+  getDayCode,
+  buildDayRange,
+  getDoctorAvailability,
+} = require('../services/doctorAvailability');
 
 const populateAppointment = (query) =>
   query
@@ -56,43 +47,14 @@ const getDoctorSlots = async (req, res) => {
       return res.status(400).json({ success: false, error: 'date query parameter required (YYYY-MM-DD)', statusCode: 400 });
     }
 
-    const parsedDate = new Date(String(date));
-    if (isNaN(parsedDate.getTime())) {
-      return res.status(400).json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD.', statusCode: 400 });
-    }
-
-    const doctor = await Doctor.findOne({ _id: doctorId, isActive: true }).populate('userId', 'name email');
-    if (!doctor) {
-      return res.status(404).json({ success: false, error: 'Doctor not found', statusCode: 404 });
-    }
-
-    const scheduledDay = getDayCode(parsedDate);
-    const worksThatDay = !doctor.availableDays.length || doctor.availableDays.includes(scheduledDay);
-    const configuredSlots = worksThatDay ? doctor.availableSlots : [];
-    const { dayStart, dayEnd } = buildDayRange(parsedDate);
-
-    const bookedAppointments = await Appointment.find({
-      doctorId: doctor._id,
-      date: { $gte: dayStart, $lt: dayEnd },
-      status: { $ne: 'Cancelled' },
-    }).select('timeSlot');
-
-    const bookedSlots = bookedAppointments.map((appointment) => appointment.timeSlot);
-    const availableSlots = configuredSlots.filter((slot) => !bookedSlots.includes(slot));
+    const availability = await getDoctorAvailability(doctorId, date);
 
     res.json({
       success: true,
-      data: {
-        date: dayStart.toISOString().split('T')[0],
-        scheduledDay,
-        doctor,
-        allSlots: configuredSlots,
-        availableSlots,
-        bookedSlots,
-      },
+      data: availability,
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message, statusCode: 500 });
+    res.status(err.statusCode || 500).json({ success: false, error: err.message, statusCode: err.statusCode || 500 });
   }
 };
 

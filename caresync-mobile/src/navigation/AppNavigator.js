@@ -12,6 +12,9 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import AdminOverviewScreen from '../screens/admin/AdminOverviewScreen';
 import AppointmentBookScreen from '../screens/appointment/AppointmentBookScreen';
 import AppointmentListScreen from '../screens/appointment/AppointmentListScreen';
+import DoctorEditScreen from '../screens/doctor/DoctorEditScreen';
+import DoctorListScreen from '../screens/doctor/DoctorListScreen';
+import DoctorProfileScreen from '../screens/doctor/DoctorProfileScreen';
 import PatientListScreen from '../screens/patient/PatientListScreen';
 import PatientProfileScreen from '../screens/patient/PatientProfileScreen';
 import PatientEditScreen from '../screens/patient/PatientEditScreen';
@@ -24,6 +27,17 @@ function SignOutButton() {
   const { logout } = useAuth();
 
   const handlePress = () => {
+    if (isWeb) {
+      const confirmed = typeof globalThis.confirm === 'function'
+        ? globalThis.confirm('End your current session on this device?')
+        : true;
+
+      if (confirmed) {
+        logout();
+      }
+      return;
+    }
+
     Alert.alert('Sign out', 'End your current session on this device?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: logout },
@@ -79,7 +93,7 @@ const baseTabOptions = {
     elevation: 0,
     alignSelf: 'center',
     width: '100%',
-    maxWidth: 860,
+    maxWidth: 980,
   } : {
     position: 'absolute',
     height: 78,
@@ -101,6 +115,15 @@ const baseTabOptions = {
 function PatientTabs() {
   return (
     <Tab.Navigator screenOptions={baseTabOptions}>
+      <Tab.Screen
+        name="Doctors"
+        component={DoctorListScreen}
+        options={{
+          title: 'Find Doctors',
+          tabBarLabel: 'Doctors',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="stethoscope" color={color} focused={focused} />,
+        }}
+      />
       <Tab.Screen
         name="Appointments"
         component={AppointmentListScreen}
@@ -145,6 +168,15 @@ function AdminTabs() {
         }}
       />
       <Tab.Screen
+        name="Doctors"
+        component={DoctorListScreen}
+        options={{
+          title: 'Doctor Management',
+          tabBarLabel: 'Doctors',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="stethoscope" color={color} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
         name="Patients"
         component={PatientListScreen}
         options={{
@@ -169,6 +201,15 @@ function AdminTabs() {
 function DoctorTabs() {
   return (
     <Tab.Navigator screenOptions={baseTabOptions}>
+      <Tab.Screen
+        name="MyDoctorProfile"
+        component={DoctorProfileScreen}
+        options={{
+          title: 'My Doctor Profile',
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="card-account-details-outline" color={color} focused={focused} />,
+        }}
+      />
       <Tab.Screen
         name="Appointments"
         component={AppointmentListScreen}
@@ -221,11 +262,19 @@ export default function AppNavigator() {
               <Stack.Screen name="Home" component={DoctorTabs} options={{ headerShown: false }} />
             )}
             <Stack.Screen name="PatientProfile" component={PatientProfileScreen} options={{ title: 'Patient Profile' }} />
+            <Stack.Screen name="DoctorProfile" component={DoctorProfileScreen} options={{ title: 'Doctor Profile' }} />
             <Stack.Screen
               name="PatientEdit"
               component={PatientEditScreen}
               options={({ route }) => ({
                 title: route.params?.mode === 'adminCreate' ? 'Create Patient Account' : 'Edit Patient Profile',
+              })}
+            />
+            <Stack.Screen
+              name="DoctorEdit"
+              component={DoctorEditScreen}
+              options={({ route }) => ({
+                title: route.params?.mode === 'adminCreate' ? 'Create Doctor Account' : 'Edit Doctor Profile',
               })}
             />
           </>
