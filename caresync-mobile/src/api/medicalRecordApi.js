@@ -10,17 +10,43 @@ export const getRecord = (id) => axiosInstance.get(`/records/${id}`);
 
 export const searchRecords = (params) => axiosInstance.get('/records/search', { params });
 
-export const createRecord = (formData) =>
-  axiosInstance.post('/records', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 30000,
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL } from './config';
+
+export const createRecord = async (formData) => {
+  const token = await AsyncStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/records`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Fetch automatically sets Content-Type to multipart/form-data with boundary
+    },
+    body: formData,
   });
 
-export const updateRecord = (id, formData) =>
-  axiosInstance.put(`/records/${id}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 30000,
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw { response: { data: { error: errorData.error || 'Failed to create record' }, status: response.status } };
+  }
+  return response.json();
+};
+
+export const updateRecord = async (id, formData) => {
+  const token = await AsyncStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/records/${id}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
   });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw { response: { data: { error: errorData.error || 'Failed to update record' }, status: response.status } };
+  }
+  return response.json();
+};
 
 export const addAddendum = (id, text) => axiosInstance.patch(`/records/${id}/addendum`, { text });
 
