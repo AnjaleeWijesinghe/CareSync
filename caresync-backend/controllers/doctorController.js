@@ -7,6 +7,7 @@ const {
   getDoctorAvailability,
 } = require('../services/doctorAvailability');
 
+
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const normaliseEmail = (value) => String(value || '').trim().toLowerCase();
 const isEmailLike = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
