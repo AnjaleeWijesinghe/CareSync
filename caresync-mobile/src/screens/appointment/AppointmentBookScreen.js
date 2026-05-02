@@ -28,7 +28,7 @@ function StepMarker({ number, label, active }) {
   );
 }
 
-export default function AppointmentBookScreen({ navigation }) {
+export default function AppointmentBookScreen({ navigation, route }) {
   const [doctors, setDoctors] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedDoctor, setSelectedDoctor] = useState(null);
@@ -54,8 +54,16 @@ export default function AppointmentBookScreen({ navigation }) {
   const fetchDoctors = async () => {
     setLoadingDoctors(true);
     try {
-      const response = await axiosInstance.get('/appointments/doctors');
-      setDoctors(response.data.data || []);
+      const response = await axiosInstance.get('/doctors');
+      const doctorList = response.data.data || [];
+      setDoctors(doctorList);
+
+      if (route?.params?.doctorId) {
+        const matchedDoctor = doctorList.find((doctor) => doctor._id === route.params.doctorId);
+        if (matchedDoctor) {
+          setSelectedDoctor(matchedDoctor);
+        }
+      }
     } catch (err) {
       Alert.alert('Error', err.response?.data?.error || 'Failed to load doctors');
     } finally {
@@ -65,7 +73,7 @@ export default function AppointmentBookScreen({ navigation }) {
 
   useEffect(() => {
     fetchDoctors();
-  }, []);
+  }, [route?.params?.doctorId]);
 
   const fetchSlots = async (doctorId, date) => {
     if (!doctorId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -78,7 +86,7 @@ export default function AppointmentBookScreen({ navigation }) {
     setSelectedSlot('');
 
     try {
-      const response = await axiosInstance.get(`/appointments/doctors/${doctorId}/slots?date=${date}`);
+      const response = await axiosInstance.get(`/doctors/${doctorId}/slots?date=${date}`);
       setSlots(response.data.data.availableSlots || []);
     } catch (err) {
       setSlots([]);
@@ -221,7 +229,7 @@ export default function AppointmentBookScreen({ navigation }) {
           <Text style={styles.selectionTitle}>Visit timing</Text>
           <Text style={styles.selectionSubtitle}>
             {selectedDoctor
-              ? `You’re booking with ${selectedDoctor.userId?.name}. Enter a date to reveal live availability.`
+              ? `You're booking with ${selectedDoctor.userId?.name}. Enter a date to reveal live availability.`
               : 'Choose a doctor first, then enter a visit date in YYYY-MM-DD format.'}
           </Text>
           <View style={styles.selectionFields}>

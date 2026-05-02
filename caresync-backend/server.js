@@ -7,6 +7,7 @@ const bootstrapAdmin = require('./services/adminBootstrap');
 
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const doctorRoutes = require('./routes/doctorRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 
@@ -22,6 +23,7 @@ app.use('/api', apiLimiter);
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 
