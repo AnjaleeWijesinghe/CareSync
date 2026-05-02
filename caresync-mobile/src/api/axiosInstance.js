@@ -13,23 +13,16 @@ axiosInstance.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      if (config.headers && typeof config.headers.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${token}`);
+      } else {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
+    
     return config;
   },
   (error) => Promise.reject(error)
-);
-
-// Global response error handler
-axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      await AsyncStorage.removeItem('token');
-      await AsyncStorage.removeItem('user');
-    }
-    return Promise.reject(error);
-  }
 );
 
 export default axiosInstance;

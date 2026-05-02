@@ -5,13 +5,18 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.caresync.app"
     },
     "android": {
       "package": "com.caresync.app"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

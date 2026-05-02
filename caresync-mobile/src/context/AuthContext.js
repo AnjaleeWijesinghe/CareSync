@@ -41,6 +41,21 @@ export const AuthProvider = ({ children }) => {
       }
     };
     loadToken();
+
+    const interceptor = axiosInstance.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          await AsyncStorage.multiRemove(['token', 'user']);
+          dispatch({ type: 'LOGOUT' });
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axiosInstance.interceptors.response.eject(interceptor);
+    };
   }, []);
 
   const login = async (email, password) => {

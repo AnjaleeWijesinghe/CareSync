@@ -124,7 +124,7 @@ export default function AppointmentBookScreen({ navigation, route }) {
       setReason('');
       setSelectedSlot('');
       Alert.alert('Success', 'Appointment booked successfully.', [
-        { text: 'View schedule', onPress: () => navigation.navigate('Appointments') },
+        { text: 'View schedule', onPress: () => navigation.navigate('Home', { screen: 'Appointments' }) },
       ]);
     } catch (err) {
       Alert.alert('Error', err.response?.data?.error || 'Could not book appointment');
