@@ -6,14 +6,20 @@ const { validationResult } = require('express-validator');
 // @route   POST /api/prescriptions
 // @access  Private (Doctor)
 const createPrescription = async (req, res) => {
+  console.log('=== CREATE PRESCRIPTION REQUEST ===');
+  console.log('User:', JSON.stringify(req.user));
+  console.log('Body:', JSON.stringify(req.body));
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log('Validation errors:', JSON.stringify(errors.array()));
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
   try {
     // Find the doctor record for the logged-in user
     const doctorRecord = await Doctor.findOne({ userId: req.user.id });
+    console.log('Doctor record found:', doctorRecord ? doctorRecord._id : 'NONE (using user id as fallback)');
     
     // Use doctorRecord._id if found, otherwise fallback to the logged-in user's id
     const finalDoctorId = doctorRecord ? doctorRecord._id : req.user.id;
@@ -22,10 +28,14 @@ const createPrescription = async (req, res) => {
     const filteredMedications = (req.body.medications || []).filter(med => med.medicineName && med.medicineName.trim() !== '');
 
     const prescription = new Prescription({
-      ...req.body,
+      patientId: req.body.patientId,
+      doctorId: String(finalDoctorId),
+      patientName: req.body.patientName,
+      doctorName: req.body.doctorName,
       medications: filteredMedications,
-      doctorId: finalDoctorId,
-      patientId: req.body.patientId
+      diagnosis: req.body.diagnosis,
+      notes: req.body.notes || '',
+      status: req.body.status || 'active'
     });
 
     const savedPrescription = await prescription.save();
@@ -33,6 +43,7 @@ const createPrescription = async (req, res) => {
     res.status(201).json({ success: true, data: savedPrescription });
   } catch (err) {
     console.error('Error saving prescription:', err.message);
+    console.error('Full error:', err);
     res.status(400).json({ success: false, error: err.message });
   }
 };

@@ -29,6 +29,7 @@ const protect = (req, res, next) => {
 
 const authorise = (...roles) => (req, res, next) => {
   if (!roles.includes(req.user.role)) {
+    console.log(`Access denied: user role '${req.user.role}' not in allowed roles [${roles.join(', ')}] for ${req.method} ${req.originalUrl}`);
     return res.status(403).json({ success: false, error: 'Access denied: insufficient role', statusCode: 403 });
   }
   next();

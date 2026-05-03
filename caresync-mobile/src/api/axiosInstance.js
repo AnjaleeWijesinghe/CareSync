@@ -24,7 +24,17 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+
+    // Log the error for debugging
+    console.log(`API Error: ${error.config?.method?.toUpperCase()} ${url} → ${status}`);
+
+    // Only clear credentials on 401 (invalid/expired token)
+    // Do NOT clear on 403 (role-based access denied — token is still valid)
+    // Do NOT clear on login/register endpoints (wrong password is not a token issue)
+    if (status === 401 && !url.includes('/auth/login') && !url.includes('/auth/register')) {
+      console.log('Token expired or invalid — clearing stored credentials');
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('user');
     }
