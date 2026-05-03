@@ -41,34 +41,34 @@ export default function PrescriptionListScreen() {
     : prescriptions;
 
   const renderItem = ({ item }) => {
-    const doctorName = item.doctorId?.userId?.name || 'Doctor';
-    const patientName = item.patientId?.userId?.name || 'Patient';
+    const doctorName = item.doctorName || 'Doctor';
+    const patientName = item.patientName || 'Patient';
     const color = statusColor[item.status] || palette.inkMuted;
 
     return (
       <TouchableOpacity style={[styles.card, shadows.soft]} activeOpacity={0.7}
-        onPress={() => navigation.navigate('PrescriptionDetail', { prescriptionId: item._id })}>
+        onPress={() => navigation.navigate('PrescriptionDetails', { prescriptionId: item._id })}>
         <View style={styles.cardTop}>
-          <Text style={styles.cardDate}>{fmt(item.prescriptionDate)}</Text>
+          <Text style={styles.cardDate}>{fmt(item.createdAt)}</Text>
           <View style={[styles.badge, { backgroundColor: color + '18' }]}>
             <Text style={[styles.badgeText, { color }]}>{item.status}</Text>
           </View>
         </View>
 
-        {item.recordId?.diagnosis && (
+        {item.diagnosis && (
           <Text style={styles.diagnosisRef} numberOfLines={1}>
-            <MaterialCommunityIcons name="file-document-outline" size={13} color={palette.inkMuted} /> {item.recordId.diagnosis}
+            <MaterialCommunityIcons name="file-document-outline" size={13} color={palette.inkMuted} /> {item.diagnosis}
           </Text>
         )}
 
         <View style={styles.medsWrap}>
-          {item.medicines?.slice(0, 3).map((m, i) => (
+          {item.medications?.slice(0, 3).map((m, i) => (
             <View key={i} style={styles.medChip}>
               <MaterialCommunityIcons name="pill" size={12} color={palette.primary} />
-              <Text style={styles.medChipText}>{m.name}</Text>
+              <Text style={styles.medChipText}>{m.medicineName}</Text>
             </View>
           ))}
-          {item.medicines?.length > 3 && <Text style={styles.moreText}>+{item.medicines.length - 3} more</Text>}
+          {item.medications?.length > 3 && <Text style={styles.moreText}>+{item.medications.length - 3} more</Text>}
         </View>
 
         <View style={styles.cardBottom}>
@@ -80,12 +80,6 @@ export default function PrescriptionListScreen() {
             <View style={styles.metaItem}>
               <MaterialCommunityIcons name="account" size={13} color={palette.inkMuted} />
               <Text style={styles.metaText}>{patientName}</Text>
-            </View>
-          )}
-          {item.refillCount > 0 && (
-            <View style={styles.metaItem}>
-              <MaterialCommunityIcons name="refresh" size={13} color={palette.warning} />
-              <Text style={styles.metaText}>Refill ×{item.refillCount}</Text>
             </View>
           )}
         </View>
@@ -119,6 +113,12 @@ export default function PrescriptionListScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetch(); }} tintColor={palette.primary} />}
         />
       )}
+
+      {(user?.role === 'doctor' || user?.role === 'admin') && (
+        <TouchableOpacity style={[styles.fab, shadows.md]} onPress={() => navigation.navigate('CreatePrescription')}>
+          <MaterialCommunityIcons name="plus" size={30} color={palette.white} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -147,4 +147,16 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 60 },
   emptyTitle: { fontFamily: typography.displayMedium, fontSize: 17, color: palette.inkSoft, marginTop: spacing.md },
   emptySubtitle: { fontFamily: typography.body, fontSize: 13, color: palette.inkMuted, marginTop: spacing.xs },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: palette.primary,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+  },
 });

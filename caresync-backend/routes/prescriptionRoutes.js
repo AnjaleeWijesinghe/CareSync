@@ -1,18 +1,23 @@
 const express = require('express');
-const { protect, authorise } = require('../middleware/authMiddleware');
+const { protect } = require('../middleware/authMiddleware');
 const {
-  createPrescription, getAllPrescriptions, getMyPrescriptions,
-  getPrescription, updatePrescription, refillPrescription, deletePrescription,
+  createPrescription,
+  getPrescriptions,
+  getPrescriptionById,
+  getPrescriptionsByPatient,
+  getPrescriptionsByDoctor,
+  updatePrescription,
+  deletePrescription
 } = require('../controllers/prescriptionController');
 
 const router = express.Router();
 
-router.post('/', protect, authorise('doctor', 'admin'), createPrescription);
-router.get('/', protect, authorise('admin'), getAllPrescriptions);
-router.get('/my', protect, authorise('patient'), getMyPrescriptions);
-router.get('/:id', protect, getPrescription);
-router.put('/:id', protect, authorise('doctor', 'admin'), updatePrescription);
-router.patch('/:id/refill', protect, authorise('doctor', 'admin'), refillPrescription);
-router.delete('/:id', protect, authorise('admin', 'doctor'), deletePrescription);
+router.post('/', protect, createPrescription);
+router.get('/', protect, getPrescriptions);
+router.get('/:id', protect, getPrescriptionById);
+router.get('/patient/:patientId', protect, getPrescriptionsByPatient);
+router.get('/doctor/:doctorId', protect, getPrescriptionsByDoctor);
+router.put('/:id', protect, updatePrescription);
+router.delete('/:id', protect, deletePrescription);
 
 module.exports = router;

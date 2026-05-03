@@ -7,39 +7,43 @@ import { useAuth } from '../../context/AuthContext';
 const CreatePrescriptionScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    recordId: '',
-    patientId: '', 
+    patientName: '',
+    doctorName: '',
+    patientId: '',
+    doctorId: '',
+    diagnosis: '',
     notes: '',
+    status: 'active'
   });
 
-  const [medicines, setMedicines] = useState([
-    { name: '', dosage: '', frequency: '', duration: '', instructions: '' }
+  const [medications, setMedications] = useState([
+    { medicineName: '', dosage: '', frequency: '', duration: '', instructions: '' }
   ]);
 
   const addMedication = () => {
-    setMedicines([...medicines, { name: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
+    setMedications([...medications, { medicineName: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
   };
 
   const removeMedication = (index) => {
-    const list = [...medicines];
+    const list = [...medications];
     list.splice(index, 1);
-    setMedicines(list);
+    setMedications(list);
   };
 
   const handleMedicationChange = (index, field, value) => {
-    const list = [...medicines];
+    const list = [...medications];
     list[index][field] = value;
-    setMedicines(list);
+    setMedications(list);
   };
 
   const handleSubmit = async () => {
     try {
-      if (!formData.recordId || !formData.patientId) {
+      if (!formData.patientName || !formData.doctorName || !formData.patientId || !formData.doctorId || !formData.diagnosis) {
         Alert.alert('Error', 'Please fill all required fields');
         return;
       }
 
-      const data = { ...formData, medicines };
+      const data = { ...formData, medications };
       await createPrescription(data);
       Alert.alert('Success', 'Prescription created successfully');
       navigation.goBack();
@@ -59,28 +63,54 @@ const CreatePrescriptionScreen = ({ navigation }) => {
       </LinearGradient>
 
       <View style={styles.form}>
-        <Text style={styles.label}>Medical Record ID *</Text>
+        <Text style={styles.label}>Patient Name *</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter Medical Record ID"
-          value={formData.recordId}
-          onChangeText={(val) => setFormData({ ...formData, recordId: val })}
+          placeholder="Enter Patient Name"
+          value={formData.patientName}
+          onChangeText={(val) => setFormData({ ...formData, patientName: val })}
+        />
+
+        <Text style={styles.label}>Doctor Name *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Doctor Name"
+          value={formData.doctorName}
+          onChangeText={(val) => setFormData({ ...formData, doctorName: val })}
         />
 
         <Text style={styles.label}>Patient ID *</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter patient ID"
+          placeholder="Enter Patient ID"
           value={formData.patientId}
           onChangeText={(val) => setFormData({ ...formData, patientId: val })}
         />
 
-        <Text style={styles.sectionTitle}>Medicines</Text>
-        {medicines.map((med, index) => (
+        <Text style={styles.label}>Doctor ID *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Doctor ID"
+          value={formData.doctorId}
+          onChangeText={(val) => setFormData({ ...formData, doctorId: val })}
+        />
+
+        <Text style={styles.label}>Diagnosis *</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Enter diagnosis"
+          multiline
+          numberOfLines={3}
+          value={formData.diagnosis}
+          onChangeText={(val) => setFormData({ ...formData, diagnosis: val })}
+        />
+
+        <Text style={styles.sectionTitle}>Medications</Text>
+        {medications.map((med, index) => (
           <View key={index} style={styles.medicationCard}>
             <View style={styles.medHeader}>
               <Text style={styles.medIndex}>Medicine #{index + 1}</Text>
-              {medicines.length > 1 && (
+              {medications.length > 1 && (
                 <TouchableOpacity onPress={() => removeMedication(index)}>
                   <Text style={styles.removeText}>Remove</Text>
                 </TouchableOpacity>
@@ -90,8 +120,8 @@ const CreatePrescriptionScreen = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Medicine Name"
-              value={med.name}
-              onChangeText={(val) => handleMedicationChange(index, 'name', val)}
+              value={med.medicineName}
+              onChangeText={(val) => handleMedicationChange(index, 'medicineName', val)}
             />
             <View style={styles.row}>
               <TextInput
@@ -109,7 +139,7 @@ const CreatePrescriptionScreen = ({ navigation }) => {
             </View>
             <TextInput
               style={styles.input}
-              placeholder="Duration (e.g. 7 days)"
+              placeholder="Duration"
               value={med.duration}
               onChangeText={(val) => handleMedicationChange(index, 'duration', val)}
             />
@@ -123,7 +153,7 @@ const CreatePrescriptionScreen = ({ navigation }) => {
         ))}
 
         <TouchableOpacity style={styles.addButton} onPress={addMedication}>
-          <Text style={styles.addButtonText}>+ Add Medicine</Text>
+          <Text style={styles.addButtonText}>+ Add Medication</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>Notes</Text>
