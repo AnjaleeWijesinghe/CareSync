@@ -22,8 +22,9 @@ import PatientEditScreen from '../screens/patient/PatientEditScreen';
 import MedicalRecordListScreen from '../screens/medicalRecord/MedicalRecordListScreen';
 import MedicalRecordDetailScreen from '../screens/medicalRecord/MedicalRecordDetailScreen';
 import CreateRecordScreen from '../screens/medicalRecord/CreateRecordScreen';
-import PrescriptionListScreen from '../screens/prescription/PrescriptionListScreen';
-import PrescriptionDetailScreen from '../screens/prescription/PrescriptionDetailScreen';
+import PrescriptionListScreen from '../screens/Prescription/PrescriptionListScreen';
+import PrescriptionDetailScreen from '../screens/Prescription/PrescriptionDetailScreen';
+import CreatePrescriptionScreen from '../screens/Prescription/CreatePrescriptionScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -331,6 +332,7 @@ export default function AppNavigator() {
             <Stack.Screen name="RecordDetail" component={MedicalRecordDetailScreen} options={{ title: 'Record Details' }} />
             <Stack.Screen name="CreateRecord" component={CreateRecordScreen} options={{ title: 'Create Medical Record' }} />
             <Stack.Screen name="PrescriptionDetail" component={PrescriptionDetailScreen} options={{ title: 'Prescription Details' }} />
+            <Stack.Screen name="CreatePrescription" component={CreatePrescriptionScreen} options={{ title: 'New Prescription' }} />
             <Stack.Screen name="BookAppointment" component={AppointmentBookScreen} options={{ title: 'Book Appointment' }} />
           </>
         )}

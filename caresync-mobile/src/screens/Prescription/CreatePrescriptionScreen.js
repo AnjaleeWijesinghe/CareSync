@@ -7,48 +7,39 @@ import { useAuth } from '../../context/AuthContext';
 const CreatePrescriptionScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    patientName: '',
+    recordId: '',
     patientId: '', 
-    doctorName: user?.name || '', 
-    diagnosis: '',
     notes: '',
-    status: 'active'
   });
 
-  useEffect(() => {
-    if (user?.name) {
-      setFormData(prev => ({ ...prev, doctorName: user.name }));
-    }
-  }, [user]);
-
-  const [medications, setMedications] = useState([
-    { medicineName: '', dosage: '', frequency: '', duration: '', instructions: '' }
+  const [medicines, setMedicines] = useState([
+    { name: '', dosage: '', frequency: '', duration: '', instructions: '' }
   ]);
 
   const addMedication = () => {
-    setMedications([...medications, { medicineName: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
+    setMedicines([...medicines, { name: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
   };
 
   const removeMedication = (index) => {
-    const list = [...medications];
+    const list = [...medicines];
     list.splice(index, 1);
-    setMedications(list);
+    setMedicines(list);
   };
 
   const handleMedicationChange = (index, field, value) => {
-    const list = [...medications];
+    const list = [...medicines];
     list[index][field] = value;
-    setMedications(list);
+    setMedicines(list);
   };
 
   const handleSubmit = async () => {
     try {
-      if (!formData.patientName || !formData.diagnosis || !formData.patientId) {
+      if (!formData.recordId || !formData.patientId) {
         Alert.alert('Error', 'Please fill all required fields');
         return;
       }
 
-      const data = { ...formData, medications };
+      const data = { ...formData, medicines };
       await createPrescription(data);
       Alert.alert('Success', 'Prescription created successfully');
       navigation.goBack();
@@ -68,15 +59,15 @@ const CreatePrescriptionScreen = ({ navigation }) => {
       </LinearGradient>
 
       <View style={styles.form}>
-        <Text style={styles.label}>Patient Name *</Text>
+        <Text style={styles.label}>Medical Record ID *</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter patient name"
-          value={formData.patientName}
-          onChangeText={(val) => setFormData({ ...formData, patientName: val })}
+          placeholder="Enter Medical Record ID"
+          value={formData.recordId}
+          onChangeText={(val) => setFormData({ ...formData, recordId: val })}
         />
 
-        <Text style={styles.label}>Patient ID (ObjectId) *</Text>
+        <Text style={styles.label}>Patient ID *</Text>
         <TextInput
           style={styles.input}
           placeholder="Enter patient ID"
@@ -84,30 +75,12 @@ const CreatePrescriptionScreen = ({ navigation }) => {
           onChangeText={(val) => setFormData({ ...formData, patientId: val })}
         />
 
-        <Text style={styles.label}>Doctor Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter doctor name"
-          value={formData.doctorName}
-          onChangeText={(val) => setFormData({ ...formData, doctorName: val })}
-        />
-
-        <Text style={styles.label}>Diagnosis *</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Enter diagnosis"
-          multiline
-          numberOfLines={3}
-          value={formData.diagnosis}
-          onChangeText={(val) => setFormData({ ...formData, diagnosis: val })}
-        />
-
-        <Text style={styles.sectionTitle}>Medications</Text>
-        {medications.map((med, index) => (
+        <Text style={styles.sectionTitle}>Medicines</Text>
+        {medicines.map((med, index) => (
           <View key={index} style={styles.medicationCard}>
             <View style={styles.medHeader}>
               <Text style={styles.medIndex}>Medicine #{index + 1}</Text>
-              {medications.length > 1 && (
+              {medicines.length > 1 && (
                 <TouchableOpacity onPress={() => removeMedication(index)}>
                   <Text style={styles.removeText}>Remove</Text>
                 </TouchableOpacity>
@@ -117,8 +90,8 @@ const CreatePrescriptionScreen = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Medicine Name"
-              value={med.medicineName}
-              onChangeText={(val) => handleMedicationChange(index, 'medicineName', val)}
+              value={med.name}
+              onChangeText={(val) => handleMedicationChange(index, 'name', val)}
             />
             <View style={styles.row}>
               <TextInput
@@ -150,7 +123,7 @@ const CreatePrescriptionScreen = ({ navigation }) => {
         ))}
 
         <TouchableOpacity style={styles.addButton} onPress={addMedication}>
-          <Text style={styles.addButtonText}>+ Add Medication</Text>
+          <Text style={styles.addButtonText}>+ Add Medicine</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>Notes</Text>
