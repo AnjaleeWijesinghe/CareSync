@@ -1,146 +1,160 @@
 const Prescription = require('../models/Prescription');
+const MedicalRecord = require('../models/MedicalRecord');
+const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
-const { validationResult } = require('express-validator');
+const { isValidObjectId } = require('../utils/validators');
+const { logAudit } = require('../middleware/auditMiddleware');
 
-// @desc    Create a new prescription
-// @route   POST /api/prescriptions
-// @access  Private (Doctor)
+const getDoctorProfile = (userId) => Doctor.findOne({ userId, isActive: true });
+const getPatientProfile = (userId) => Patient.findOne({ userId });
+
+const populatePrescription = (query) =>
+  query.populate([
+    { path: 'patientId', populate: { path: 'userId', select: 'name email' } },
+    { path: 'doctorId', populate: { path: 'userId', select: 'name email' } },
+    { path: 'recordId', select: 'diagnosis recordDate' }
+  ]);
+
+// POST /api/prescriptions
 const createPrescription = async (req, res) => {
-  console.log('=== CREATE PRESCRIPTION REQUEST ===');
-  console.log('User:', JSON.stringify(req.user));
-  console.log('Body:', JSON.stringify(req.body));
-
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    console.log('Validation errors:', JSON.stringify(errors.array()));
-    return res.status(400).json({ success: false, errors: errors.array() });
-  }
-
   try {
-    // Find the doctor record for the logged-in user
-    const doctorRecord = await Doctor.findOne({ userId: req.user.id });
-    console.log('Doctor record found:', doctorRecord ? doctorRecord._id : 'NONE (using user id as fallback)');
-    
-    // Use doctorRecord._id if found, otherwise fallback to the logged-in user's id
-    const finalDoctorId = doctorRecord ? doctorRecord._id : req.user.id;
+    const { recordId, patientId, medicines, notes } = req.body;
 
-    // Filter out empty medications
-    const filteredMedications = (req.body.medications || []).filter(med => med.medicineName && med.medicineName.trim() !== '');
+    if (!recordId || !isValidObjectId(recordId)) return res.status(400).json({ success: false, error: 'Valid recordId is required', statusCode: 400 });
+    if (!patientId || !isValidObjectId(patientId)) return res.status(400).json({ success: false, error: 'Valid patientId is required', statusCode: 400 });
 
-    const prescription = new Prescription({
-      patientId: req.body.patientId,
-      doctorId: String(finalDoctorId),
-      patientName: req.body.patientName,
-      doctorName: req.body.doctorName,
-      medications: filteredMedications,
-      diagnosis: req.body.diagnosis,
-      notes: req.body.notes || '',
-      status: req.body.status || 'active'
-    });
+    const record = await MedicalRecord.findById(recordId);
+    if (!record) return res.status(404).json({ success: false, error: 'Medical record not found', statusCode: 404 });
 
-    const savedPrescription = await prescription.save();
-    console.log('Prescription saved successfully:', savedPrescription._id);
-    res.status(201).json({ success: true, data: savedPrescription });
-  } catch (err) {
-    console.error('Error saving prescription:', err.message);
-    console.error('Full error:', err);
-    res.status(400).json({ success: false, error: err.message });
-  }
-};
+    const patient = await Patient.findById(patientId);
+    if (!patient) return res.status(404).json({ success: false, error: 'Patient not found', statusCode: 404 });
 
-// @desc    Get all prescriptions
-// @route   GET /api/prescriptions
-// @access  Private (Admin/Doctor)
-const getPrescriptions = async (req, res) => {
-  try {
-    const prescriptions = await Prescription.find().sort({ createdAt: -1 });
-    res.json({ success: true, count: prescriptions.length, data: prescriptions });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-// @desc    Get prescriptions for a specific patient
-// @route   GET /api/prescriptions/patient/:patientId
-// @access  Private
-const getPrescriptionsByPatient = async (req, res) => {
-  try {
-    const prescriptions = await Prescription.find({ patientId: req.params.patientId }).sort({ createdAt: -1 });
-    res.json({ success: true, count: prescriptions.length, data: prescriptions });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-// @desc    Get prescriptions created by a specific doctor
-// @route   GET /api/prescriptions/doctor/:doctorId
-// @access  Private
-const getPrescriptionsByDoctor = async (req, res) => {
-  try {
-    const prescriptions = await Prescription.find({ doctorId: req.params.doctorId }).sort({ createdAt: -1 });
-    res.json({ success: true, count: prescriptions.length, data: prescriptions });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-// @desc    Get one prescription by ID
-// @route   GET /api/prescriptions/:id
-// @access  Private
-const getPrescriptionById = async (req, res) => {
-  try {
-    const prescription = await Prescription.findById(req.params.id);
-    if (!prescription) {
-      return res.status(404).json({ success: false, error: 'Prescription not found' });
+    let resolvedDoctorId;
+    if (req.user.role === 'doctor') {
+      const doc = await getDoctorProfile(req.user.id);
+      if (!doc) return res.status(404).json({ success: false, error: 'Doctor profile not found', statusCode: 404 });
+      resolvedDoctorId = doc._id;
+    } else if (req.user.role === 'admin' && req.body.doctorId && isValidObjectId(req.body.doctorId)) {
+      resolvedDoctorId = req.body.doctorId;
     }
-    res.json({ success: true, data: prescription });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+    if (!resolvedDoctorId) return res.status(400).json({ success: false, error: 'doctorId is required', statusCode: 400 });
+
+    let parsedMedicines = medicines;
+    if (typeof medicines === 'string') parsedMedicines = JSON.parse(medicines);
+    if (!Array.isArray(parsedMedicines) || parsedMedicines.length === 0) {
+      return res.status(400).json({ success: false, error: 'At least one medicine is required', statusCode: 400 });
+    }
+
+    const prescription = await Prescription.create({
+      recordId, patientId, doctorId: resolvedDoctorId,
+      medicines: parsedMedicines, notes: notes ? String(notes).trim() : undefined,
+    });
+    await populatePrescription(prescription);
+
+    logAudit(req, { action: 'CREATE', resourceType: 'Prescription', resourceId: prescription._id, details: `Created prescription for patient ${patientId}` });
+    res.status(201).json({ success: true, data: prescription, message: 'Prescription created successfully' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
 };
 
-// @desc    Update prescription
-// @route   PUT /api/prescriptions/:id
-// @access  Private (Doctor)
+// GET /api/prescriptions
+const getAllPrescriptions = async (req, res) => {
+  try {
+    const { patient, status, page = 1, limit = 20 } = req.query;
+    const filter = {};
+    if (patient && isValidObjectId(patient)) filter.patientId = String(patient);
+    if (status && ['Active', 'Completed', 'Cancelled'].includes(String(status))) filter.status = String(status);
+
+    const p = Math.max(1, parseInt(String(page), 10) || 1);
+    const l = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 20));
+    const prescriptions = await populatePrescription(Prescription.find(filter)).sort({ prescriptionDate: -1 }).skip((p - 1) * l).limit(l);
+    const total = await Prescription.countDocuments(filter);
+    res.json({ success: true, data: prescriptions, pagination: { page: p, limit: l, total } });
+  } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
+};
+
+// GET /api/prescriptions/my
+const getMyPrescriptions = async (req, res) => {
+  try {
+    const patient = await getPatientProfile(req.user.id);
+    if (!patient) return res.status(404).json({ success: false, error: 'Patient profile not found', statusCode: 404 });
+    const prescriptions = await populatePrescription(Prescription.find({ patientId: patient._id })).sort({ prescriptionDate: -1 });
+    res.json({ success: true, data: prescriptions });
+  } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
+};
+
+// GET /api/prescriptions/:id
+const getPrescription = async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid prescription ID', statusCode: 400 });
+    const prescription = await populatePrescription(Prescription.findById(req.params.id));
+    if (!prescription) return res.status(404).json({ success: false, error: 'Prescription not found', statusCode: 404 });
+
+    if (req.user.role === 'patient') {
+      const p = await getPatientProfile(req.user.id);
+      if (!p || prescription.patientId._id.toString() !== p._id.toString()) return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
+    }
+    if (req.user.role === 'doctor') {
+      const d = await getDoctorProfile(req.user.id);
+      if (!d || prescription.doctorId._id.toString() !== d._id.toString()) return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
+    }
+
+    logAudit(req, { action: 'READ', resourceType: 'Prescription', resourceId: prescription._id, details: `Viewed prescription ${prescription._id}` });
+    res.json({ success: true, data: prescription });
+  } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
+};
+
+// PUT /api/prescriptions/:id
 const updatePrescription = async (req, res) => {
   try {
-    const prescription = await Prescription.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid prescription ID', statusCode: 400 });
+    const prescription = await Prescription.findById(req.params.id);
+    if (!prescription) return res.status(404).json({ success: false, error: 'Prescription not found', statusCode: 404 });
 
-    if (!prescription) {
-      return res.status(404).json({ success: false, error: 'Prescription not found' });
+    if (req.user.role === 'doctor') {
+      const d = await getDoctorProfile(req.user.id);
+      if (!d || prescription.doctorId.toString() !== d._id.toString()) return res.status(403).json({ success: false, error: 'Access denied', statusCode: 403 });
     }
 
-    res.json({ success: true, data: prescription });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
-  }
+    const { medicines, status, notes } = req.body;
+    if (medicines) {
+      const parsed = typeof medicines === 'string' ? JSON.parse(medicines) : medicines;
+      if (Array.isArray(parsed) && parsed.length) prescription.medicines = parsed;
+    }
+    if (status && ['Active', 'Completed', 'Cancelled'].includes(String(status))) prescription.status = String(status);
+    if (notes !== undefined) prescription.notes = String(notes).trim();
+
+    await prescription.save();
+    await populatePrescription(prescription);
+    logAudit(req, { action: 'UPDATE', resourceType: 'Prescription', resourceId: prescription._id, details: `Updated prescription ${prescription._id}` });
+    res.json({ success: true, data: prescription, message: 'Prescription updated successfully' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
 };
 
-// @desc    Delete prescription
-// @route   DELETE /api/prescriptions/:id
-// @access  Private (Admin/Doctor)
+// PATCH /api/prescriptions/:id/refill
+const refillPrescription = async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid prescription ID', statusCode: 400 });
+    const prescription = await Prescription.findById(req.params.id);
+    if (!prescription) return res.status(404).json({ success: false, error: 'Prescription not found', statusCode: 404 });
+
+    prescription.refillCount += 1;
+    prescription.status = 'Active';
+    await prescription.save();
+    await populatePrescription(prescription);
+    logAudit(req, { action: 'UPDATE', resourceType: 'Prescription', resourceId: prescription._id, details: `Refilled prescription (count: ${prescription.refillCount})` });
+    res.json({ success: true, data: prescription, message: `Prescription refilled (count: ${prescription.refillCount})` });
+  } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
+};
+
+// DELETE /api/prescriptions/:id
 const deletePrescription = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid prescription ID', statusCode: 400 });
     const prescription = await Prescription.findByIdAndDelete(req.params.id);
-    if (!prescription) {
-      return res.status(404).json({ success: false, error: 'Prescription not found' });
-    }
-    res.json({ success: true, message: 'Prescription deleted' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+    if (!prescription) return res.status(404).json({ success: false, error: 'Prescription not found', statusCode: 404 });
+    logAudit(req, { action: 'DELETE', resourceType: 'Prescription', resourceId: prescription._id, details: `Deleted prescription ${prescription._id}` });
+    res.json({ success: true, message: 'Prescription deleted successfully' });
+  } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
 };
 
-module.exports = {
-  createPrescription,
-  getPrescriptions,
-  getPrescriptionsByPatient,
-  getPrescriptionsByDoctor,
-  getPrescriptionById,
-  updatePrescription,
-  deletePrescription
-};
+module.exports = { createPrescription, getAllPrescriptions, getMyPrescriptions, getPrescription, updatePrescription, refillPrescription, deletePrescription };

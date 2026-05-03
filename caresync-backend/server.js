@@ -10,7 +10,9 @@ const adminRoutes = require('./routes/adminRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
+const medicalRecordRoutes = require('./routes/medicalRecordRoutes');
 const prescriptionRoutes = require('./routes/prescriptionRoutes');
+const auditLogRoutes = require('./routes/auditLogRoutes');
 
 const app = express();
 
@@ -27,7 +29,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/records', medicalRecordRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'CareSync API is running' });
@@ -46,21 +50,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = parseInt(process.env.PORT, 10) || 5000;
+const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`CareSync API running on port ${PORT}`);
-});
-
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(
-      `Port ${PORT} is already in use. Stop the existing process or set a different port via PORT environment variable.`
-    );
-    process.exit(1);
-  }
-
-  console.error('Server error:', err);
-  process.exit(1);
 });
 
 module.exports = { app, server };

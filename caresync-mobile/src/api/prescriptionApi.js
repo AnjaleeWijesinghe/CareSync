@@ -1,39 +1,15 @@
 import axiosInstance from './axiosInstance';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const createPrescription = async (data) => {
-  const token = await AsyncStorage.getItem('token');
-  console.log('Sending prescription with token:', token ? `${token.substring(0, 10)}...` : 'NONE');
-  const response = await axiosInstance.post('/prescriptions', data);
-  return response.data;
-};
+export const getMyPrescriptions = () => axiosInstance.get('/prescriptions/my');
 
-export const getPrescriptions = async () => {
-  const response = await axiosInstance.get('/prescriptions');
-  return response.data;
-};
+export const getAllPrescriptions = (params) => axiosInstance.get('/prescriptions', { params });
 
-export const getPrescriptionById = async (id) => {
-  const response = await axiosInstance.get(`/prescriptions/${id}`);
-  return response.data;
-};
+export const getPrescription = (id) => axiosInstance.get(`/prescriptions/${id}`);
 
-export const getPrescriptionsByPatient = async (patientId) => {
-  const response = await axiosInstance.get(`/prescriptions/patient/${patientId}`);
-  return response.data;
-};
+export const createPrescription = (data) => axiosInstance.post('/prescriptions', data);
 
-export const getPrescriptionsByDoctor = async (doctorId) => {
-  const response = await axiosInstance.get(`/prescriptions/doctor/${doctorId}`);
-  return response.data;
-};
+export const updatePrescription = (id, data) => axiosInstance.put(`/prescriptions/${id}`, data);
 
-export const updatePrescription = async (id, data) => {
-  const response = await axiosInstance.put(`/prescriptions/${id}`, data);
-  return response.data;
-};
+export const refillPrescription = (id) => axiosInstance.patch(`/prescriptions/${id}/refill`);
 
-export const deletePrescription = async (id) => {
-  const response = await axiosInstance.delete(`/prescriptions/${id}`);
-  return response.data;
-};
+export const deletePrescription = (id) => axiosInstance.delete(`/prescriptions/${id}`);
