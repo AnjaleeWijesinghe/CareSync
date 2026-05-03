@@ -1,6 +1,7 @@
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
 const Patient = require('../models/Patient');
+const Prescription = require('../models/Prescription');
 
 const STATUS_TEMPLATE = {
   Pending: 0,
@@ -37,6 +38,7 @@ const getOverview = async (req, res) => {
       statusSummary,
       recentPatients,
       upcomingAppointments,
+      totalPrescriptions,
     ] = await Promise.all([
       Patient.countDocuments({ isActive: true }),
       Patient.countDocuments({ isActive: false }),
@@ -67,6 +69,7 @@ const getOverview = async (req, res) => {
         .populate({ path: 'doctorId', populate: { path: 'userId', select: 'name email' } })
         .sort({ date: 1, timeSlot: 1 })
         .limit(5),
+      Prescription.countDocuments(),
     ]);
 
     const appointmentStatus = statusSummary.reduce((summary, item) => {
@@ -86,6 +89,7 @@ const getOverview = async (req, res) => {
           totalAppointments,
           todayAppointments,
           upcomingAppointments: upcomingAppointmentsCount,
+          totalPrescriptions,
         },
         patientSignals: {
           withEmergencyContact: patientsWithEmergencyContact,

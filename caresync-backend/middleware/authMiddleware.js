@@ -8,12 +8,21 @@ const protect = (req, res, next) => {
   }
 
   const token = authHeader.split(' ')[1];
+  console.log('Verifying token for:', req.originalUrl);
+  
+  if (!process.env.JWT_SECRET) {
+    console.error('FATAL ERROR: JWT_SECRET is not defined in environment variables!');
+  }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
     req.user = decoded; // { id, role }
     next();
   } catch (err) {
+    console.error('JWT Verification Error:', err.message);
+    if (err.name === 'JsonWebTokenError') {
+      console.error('Specific Error: Invalid Signature or Malformed Token');
+    }
     return res.status(401).json({ success: false, error: 'Invalid or expired token', statusCode: 401 });
   }
 };

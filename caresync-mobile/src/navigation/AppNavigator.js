@@ -18,6 +18,9 @@ import DoctorProfileScreen from '../screens/doctor/DoctorProfileScreen';
 import PatientListScreen from '../screens/patient/PatientListScreen';
 import PatientProfileScreen from '../screens/patient/PatientProfileScreen';
 import PatientEditScreen from '../screens/patient/PatientEditScreen';
+import PrescriptionListScreen from '../screens/Prescription/PrescriptionListScreen';
+import CreatePrescriptionScreen from '../screens/Prescription/CreatePrescriptionScreen';
+import PrescriptionDetailsScreen from '../screens/Prescription/PrescriptionDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -143,6 +146,15 @@ function PatientTabs() {
         }}
       />
       <Tab.Screen
+        name="MyPrescriptions"
+        component={PrescriptionListScreen}
+        options={{
+          title: 'My Prescriptions',
+          tabBarLabel: 'Prescriptions',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="pill" color={color} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
         name="MyProfile"
         component={PatientProfileScreen}
         options={{
@@ -211,12 +223,12 @@ function DoctorTabs() {
         }}
       />
       <Tab.Screen
-        name="Appointments"
-        component={AppointmentListScreen}
+        name="DoctorPrescriptions"
+        component={PrescriptionListScreen}
         options={{
-          title: 'Assigned Appointments',
-          tabBarLabel: 'Appointments',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="stethoscope" color={color} focused={focused} />,
+          title: 'Prescriptions',
+          tabBarLabel: 'Prescriptions',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="pill" color={color} focused={focused} />,
         }}
       />
     </Tab.Navigator>
@@ -277,6 +289,9 @@ export default function AppNavigator() {
                 title: route.params?.mode === 'adminCreate' ? 'Create Doctor Account' : 'Edit Doctor Profile',
               })}
             />
+            <Stack.Screen name="PrescriptionList" component={PrescriptionListScreen} options={{ title: 'Prescriptions' }} />
+            <Stack.Screen name="CreatePrescription" component={CreatePrescriptionScreen} options={{ title: 'New Prescription' }} />
+            <Stack.Screen name="PrescriptionDetails" component={PrescriptionDetailsScreen} options={{ title: 'Prescription Details' }} />
           </>
         )}
       </Stack.Navigator>

@@ -116,6 +116,7 @@ export default function AdminOverviewScreen({ navigation }) {
                 <MetricTile label="Today's Visits" value={summary.todayAppointments || 0} icon="calendar-today" tone="accent" />
                 <MetricTile label="Upcoming" value={summary.upcomingAppointments || 0} icon="calendar-clock-outline" />
                 <MetricTile label="Care Team" value={summary.doctorsAvailable || 0} icon="stethoscope" tone="accent" />
+                <MetricTile label="Prescriptions" value={summary.totalPrescriptions || 0} icon="pill" />
               </View>
             </GlassCard>
           </Reveal>
