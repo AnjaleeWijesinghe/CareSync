@@ -16,12 +16,33 @@ const auditLogRoutes = require('./routes/auditLogRoutes');
 
 const app = express();
 
-// Initialize backing services on cold start.
-connectDB().then(() => bootstrapAdmin());
+let initPromise = null;
+
+const ensureAppReady = async () => {
+  if (!initPromise) {
+    initPromise = connectDB()
+      .then(() => bootstrapAdmin())
+      .catch((err) => {
+        initPromise = null;
+        throw err;
+      });
+  }
+
+  return initPromise;
+};
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(async (req, res, next) => {
+  try {
+    await ensureAppReady();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.use('/api', apiLimiter);
 
