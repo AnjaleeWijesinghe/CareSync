@@ -200,11 +200,13 @@ const getAllPatients = async (req, res) => {
     const safePage = Math.max(1, parseInt(String(page), 10) || 1);
     const safeLimit = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 20));
 
-    let query = Patient.find(filter).populate('userId', 'name email');
+    let query;
     if (name) {
       const safeNameRegex = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query = Patient.find(filter)
         .populate({ path: 'userId', match: { name: { $regex: safeNameRegex, $options: 'i' } }, select: 'name email' });
+    } else {
+      query = Patient.find(filter).populate('userId', 'name email');
     }
 
     const patients = await query
@@ -222,6 +224,10 @@ const getAllPatients = async (req, res) => {
 // GET /api/patients/:id
 const getPatient = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid patient ID', statusCode: 400 });
+    }
+
     const patient = await Patient.findById(req.params.id).populate('userId', 'name email');
     if (!patient) {
       return res.status(404).json({ success: false, error: 'Patient not found', statusCode: 404 });

@@ -12,8 +12,7 @@ const appointmentSchema = new mongoose.Schema({
     default: 'Pending',
   },
   notes: { type: String },
-  createdAt: { type: Date, default: Date.now },
-});
+}, { timestamps: true });
 
 // Compound index to detect duplicate bookings
 appointmentSchema.index({ doctorId: 1, date: 1, timeSlot: 1 }, { unique: false });

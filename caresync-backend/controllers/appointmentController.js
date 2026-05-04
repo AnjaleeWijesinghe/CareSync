@@ -9,11 +9,13 @@ const {
   getDoctorAvailability,
 } = require('../services/doctorAvailability');
 
-const populateAppointment = (query) =>
-  query.populate([
+const APPOINTMENT_POPULATE = [
     { path: 'patientId', populate: { path: 'userId', select: 'name email' } },
     { path: 'doctorId', populate: { path: 'userId', select: 'name email' } }
-  ]);
+  ];
+
+const populateAppointment = (query) =>
+  query.populate(APPOINTMENT_POPULATE);
 
 const getBookableDoctors = async (req, res) => {
   try {
@@ -119,7 +121,7 @@ const bookAppointment = async (req, res) => {
       reason: reason ? String(reason) : undefined,
     });
 
-    await populateAppointment(appointment);
+    await appointment.populate(APPOINTMENT_POPULATE);
 
     res.status(201).json({ success: true, data: appointment, message: 'Appointment booked successfully' });
   } catch (err) {
@@ -240,7 +242,7 @@ const updateStatus = async (req, res) => {
 
     appointment.status = safeStatus;
     await appointment.save();
-    await populateAppointment(appointment);
+    await appointment.populate(APPOINTMENT_POPULATE);
 
     res.json({ success: true, data: appointment, message: `Appointment status updated to ${safeStatus}` });
   } catch (err) {

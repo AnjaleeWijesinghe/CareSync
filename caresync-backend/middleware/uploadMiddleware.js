@@ -76,5 +76,6 @@ const cloudinaryUpload = async (req, res, next) => {
 };
 
 module.exports = upload;
+module.exports.upload = upload;
 module.exports.cloudinaryUpload = cloudinaryUpload;
 module.exports.uploadToCloudinary = uploadToCloudinary;

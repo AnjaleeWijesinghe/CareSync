@@ -8,28 +8,23 @@ const protect = (req, res, next) => {
   }
 
   const token = authHeader.split(' ')[1];
-  console.log('Verifying token for:', req.originalUrl);
-  
   if (!process.env.JWT_SECRET) {
     console.error('FATAL ERROR: JWT_SECRET is not defined in environment variables!');
+    return res.status(500).json({ success: false, error: 'Server configuration error', statusCode: 500 });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // { id, role }
     next();
   } catch (err) {
-    console.error('JWT Verification Error:', err.message);
-    if (err.name === 'JsonWebTokenError') {
-      console.error('Specific Error: Invalid Signature or Malformed Token');
-    }
+    console.error('JWT verification failed:', err.name);
     return res.status(401).json({ success: false, error: 'Invalid or expired token', statusCode: 401 });
   }
 };
 
 const authorise = (...roles) => (req, res, next) => {
   if (!roles.includes(req.user.role)) {
-    console.log(`Access denied: user role '${req.user.role}' not in allowed roles [${roles.join(', ')}] for ${req.method} ${req.originalUrl}`);
     return res.status(403).json({ success: false, error: 'Access denied: insufficient role', statusCode: 403 });
   }
   next();

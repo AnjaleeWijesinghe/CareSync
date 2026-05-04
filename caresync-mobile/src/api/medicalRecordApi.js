@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL } from './config';
 import axiosInstance from './axiosInstance';
 
 export const getMyRecords = (params) => axiosInstance.get('/records/me', { params });
@@ -9,9 +11,6 @@ export const getAllRecords = (params) => axiosInstance.get('/records', { params 
 export const getRecord = (id) => axiosInstance.get(`/records/${id}`);
 
 export const searchRecords = (params) => axiosInstance.get('/records/search', { params });
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from './config';
 
 export const createRecord = async (formData) => {
   const token = await AsyncStorage.getItem('token');

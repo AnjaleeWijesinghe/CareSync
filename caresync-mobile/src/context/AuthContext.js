@@ -45,7 +45,12 @@ export const AuthProvider = ({ children }) => {
     const interceptor = axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401 || error.response?.status === 403) {
+        const status = error.response?.status;
+        const url = error.config?.url || '';
+        // Only clear credentials on 401 (invalid/expired token)
+        // Do NOT clear on 403 (role-based access denied — token is still valid)
+        // Do NOT clear on login/register endpoints (wrong password is not a token issue)
+        if (status === 401 && !url.includes('/auth/login') && !url.includes('/auth/register')) {
           await AsyncStorage.multiRemove(['token', 'user']);
           dispatch({ type: 'LOGOUT' });
         }

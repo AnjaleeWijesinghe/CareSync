@@ -6,13 +6,15 @@ const { isValidObjectId } = require('../utils/validators');
 const { logAudit } = require('../middleware/auditMiddleware');
 const { uploadToCloudinary } = require('../middleware/uploadMiddleware');
 
-const populateRecord = (query) =>
-  query.populate([
+const RECORD_POPULATE = [
     { path: 'patientId', populate: { path: 'userId', select: 'name email' } },
     { path: 'doctorId', populate: { path: 'userId', select: 'name email' } },
     { path: 'appointmentId', select: 'date timeSlot status' },
     { path: 'addendums.addedBy', select: 'name role' }
-  ]);
+  ];
+
+const populateRecord = (query) =>
+  query.populate(RECORD_POPULATE);
 
 const getDoctorProfile = (userId) => Doctor.findOne({ userId, isActive: true });
 const getPatientProfile = (userId) => Patient.findOne({ userId });
@@ -25,7 +27,12 @@ const parseSymptoms = (symptoms) => {
 
 const parseVitals = (vitalSigns) => {
   if (!vitalSigns) return null;
-  const v = typeof vitalSigns === 'string' ? JSON.parse(vitalSigns) : vitalSigns;
+  let v;
+  try {
+    v = typeof vitalSigns === 'string' ? JSON.parse(vitalSigns) : vitalSigns;
+  } catch {
+    return null;
+  }
   const out = {};
   if (v.bloodPressure) out.bloodPressure = String(v.bloodPressure);
   if (v.heartRate) out.heartRate = Number(v.heartRate);
@@ -83,7 +90,7 @@ const createRecord = async (req, res) => {
       notes: notes ? String(notes).trim() : undefined,
       vitalSigns: vitals || undefined, documents,
     });
-    await populateRecord(record);
+    await record.populate(RECORD_POPULATE);
     logAudit(req, { action: 'CREATE', resourceType: 'MedicalRecord', resourceId: record._id, details: `Created record for patient ${patientId}` });
     res.status(201).json({ success: true, data: record, message: 'Medical record created successfully' });
   } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
@@ -188,7 +195,7 @@ const updateRecord = async (req, res) => {
     if (newDocs.length) record.documents.push(...newDocs);
 
     await record.save();
-    await populateRecord(record);
+    await record.populate(RECORD_POPULATE);
     logAudit(req, { action: 'UPDATE', resourceType: 'MedicalRecord', resourceId: record._id, details: `Updated record ${record._id}` });
     res.json({ success: true, data: record, message: 'Medical record updated successfully' });
   } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
@@ -211,7 +218,7 @@ const addAddendum = async (req, res) => {
 
     record.addendums.push({ text: String(text).trim(), addedBy: req.user.id, addedAt: new Date() });
     await record.save();
-    await populateRecord(record);
+    await record.populate(RECORD_POPULATE);
     logAudit(req, { action: 'UPDATE', resourceType: 'MedicalRecord', resourceId: record._id, details: 'Added follow-up addendum' });
     res.json({ success: true, data: record, message: 'Addendum added successfully' });
   } catch (err) { res.status(500).json({ success: false, error: err.message, statusCode: 500 }); }
