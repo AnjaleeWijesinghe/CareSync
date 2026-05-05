@@ -12,6 +12,7 @@ const {
   getDoctorSlots,
 } = require('../controllers/doctorController');
 
+
 const router = express.Router();
 
 router.get('/me', protect, authorise('doctor'), getMyDoctorProfile);
